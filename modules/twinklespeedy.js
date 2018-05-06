@@ -359,7 +359,7 @@ Twinkle.speedy.callback.modeChanged = function twinklespeedyCallbackModeChanged(
 			case 2:  // user
 			case 3:  // user talk
 				work_area.append( { type: 'header', label: 'Trang cá nhân' } );
-				work_area.append( { type: radioOrCheckbox, name: 'csd', list: Twinkle.speedy.generateCsdList(Twinkle.speedy.userList, mode) } );
+				work_area.append( { type: radioOrCheckbox, name: 'csd', list: Twinkle.speedy.generateCsdList(Twinkle.speedy.userAllList.concat(Twinkle.speedy.userNonRedirectList), mode) } );
 				break;
 
 			case 6:  // file
@@ -392,6 +392,9 @@ Twinkle.speedy.callback.modeChanged = function twinklespeedyCallbackModeChanged(
 			default:
 				break;
 		}
+	} else if (namespace == 2 || namespace == 3) {
+		work_area.append( { type: 'header', label: 'User pages' } );
+		work_area.append( { type: radioOrCheckbox, name: 'csd', list: Twinkle.speedy.generateCsdList(Twinkle.speedy.userAllList, mode) } );
 	}
 
 	// custom rationale lives under general criteria when tagging
@@ -746,7 +749,7 @@ Twinkle.speedy.categoryList = [
 	{
 		label: 'C1: Empty categories',
 		value: 'catempty',
-		tooltip: 'Categories that have been unpopulated for at least four days. This does not apply to categories being discussed at WP:CFD, disambiguation categories, and certain other exceptions. If the category isn\'t relatively new, it possibly contained articles earlier, and deeper investigation is needed'
+		tooltip: 'Categories that have been unpopulated for at least seven days. This does not apply to categories being discussed at WP:CFD, disambiguation categories, and certain other exceptions. If the category isn\'t relatively new, it possibly contained articles earlier, and deeper investigation is needed'
 	},
 	{
 		label: 'G8: Categories populated by a deleted or retargeted template',
@@ -755,7 +758,7 @@ Twinkle.speedy.categoryList = [
 	}
 ];
 
-Twinkle.speedy.userList = [
+Twinkle.speedy.userAllList = [
 	{
 		label: 'TV1: Thành viên yêu cầu xóa',
 		value: 'userreq',
@@ -768,7 +771,10 @@ Twinkle.speedy.userList = [
 			size: 60
 		} : null),
 		hideSubgroupWhenMultiple: true
-	},
+	}
+];
+
+Twinkle.speedy.userNonRedirectList = [
 	{
 		label: 'TV2: Tên thành viên không tồn tại',
 		value: 'nouser',
@@ -893,7 +899,8 @@ Twinkle.speedy.generalList = [
 			type: 'input',
 			label: 'Page to be merged into this one: '
 		},
-		hideWhenMultiple: true
+		hideWhenMultiple: true,
+		hideWhenSysop: true
 	},
 	{
 		label: 'C6: Di chuyển',
@@ -1172,6 +1179,7 @@ Twinkle.speedy.callbacks = {
 			prop: "text",
 			pst: "true",
 			text: wikitext,
+			contentmodel: "wikitext",
 			title: mw.config.get("wgPageName")
 		};
 
@@ -1437,9 +1445,9 @@ Twinkle.speedy.callbacks = {
 				editsummary = editsummary.substr(0, editsummary.length - 2); // remove trailing comma
 				editsummary += ').';
 			} else if (params.normalizeds[0] === "db") {
-				editsummary = 'Đề nghị [[WP:XN|Xóa nhanh]] với lý do \"' + params.templateParams[0]["1"] + '\".';
+				editsummary = 'Đề nghị [[WP:XN|Xóa nhanh]] với lý do “' + params.templateParams[0]["1"] + '”.';
 			} else if (params.values[0] === "histmerge") {
-				editsummary = "Đề nghị trộn lịch sử trang với [[" + params["1"] + "]] ([[WP:XN#C6|XN C6]]).";
+				editsummary = "Đề nghị trộn lịch sử trang với [[:" + params.templateParams[0]["1"] + "]] ([[WP:XN#C6|XN C6]]).";
 			} else {
 				editsummary = "Đề nghị xóa nhanh ([[WP:XN#" + params.normalizeds[0].toUpperCase() + "|XN " + params.normalizeds[0].toUpperCase() + "]]).";
 			}
@@ -1497,7 +1505,7 @@ Twinkle.speedy.callbacks = {
 
 						var editsummary = "Notification: speedy deletion nomination";
 						if (params.normalizeds.indexOf("g10") === -1) {  // no article name in summary for G10 deletions
-							editsummary += " of [[" + Morebits.pageNameNorm + "]].";
+							editsummary += " of [[:" + Morebits.pageNameNorm + "]].";
 						} else {
 							editsummary += " of an attack page.";
 						}
@@ -1582,7 +1590,7 @@ Twinkle.speedy.callbacks = {
 			appendText += " ~~~~~\n";
 
 			pageobj.setAppendText(appendText);
-			pageobj.setEditSummary("Logging speedy deletion nomination of [[" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
+			pageobj.setEditSummary("Logging speedy deletion nomination of [[:" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
 			pageobj.setCreateOption("recreate");
 			pageobj.append();
 		}

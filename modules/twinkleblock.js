@@ -76,7 +76,7 @@ Twinkle.block.callback = function twinkleblockCallback() {
 	result.root = result;
 
 	Twinkle.block.fetchUserInfo(function() {
-		// clean up preset data (defaults, etc.), done exactly once, must be before Twinkle.block.callback.change_action is called
+		// clean up preset data (defaults, etc.), done exactly once, must be before Twinkle.block.callback.change_action is called
 		Twinkle.block.transformBlockPresets();
 
 		// init the controls after user and block info have been fetched
@@ -230,6 +230,40 @@ Twinkle.block.callback.change_action = function twinkleblockCallbackChangeAction
 				value: Twinkle.block.field_block_options.reason
 			});
 
+		field_block_options.append({
+				type: 'div',
+				name: 'filerlog_label',
+				label: 'See also:',
+				style: 'display:inline-block;font-style:normal !important',
+				tooltip: 'Insert a "see also" message to indicate whether the filter log or deleted contributions played a role in the decision to block.'
+			});
+		field_block_options.append({
+				type: 'checkbox',
+				name: 'filter_see_also',
+				event: Twinkle.block.callback.toggle_see_alsos,
+				style: 'display:inline-block; margin-right:5px',
+				list: [
+					{
+						label: 'Filter log',
+						checked: false,
+						value: 'filter log'
+					}
+				]
+			} );
+		field_block_options.append({
+				type: 'checkbox',
+				name: 'deleted_see_also',
+				event: Twinkle.block.callback.toggle_see_alsos,
+				style: 'display:inline-block',
+				list: [
+					{
+						label: 'Deleted contribs',
+						checked: false,
+						value: 'deleted contribs'
+					}
+				]
+			} );
+
 		if (Twinkle.block.currentBlockInfo) {
 			field_block_options.append( { type: 'hidden', name: 'reblock', value: '1' } );
 		}
@@ -280,7 +314,7 @@ Twinkle.block.callback.change_action = function twinkleblockCallbackChangeAction
 					{
 						label: 'Do not include expiry in template',
 						checked: Twinkle.block.field_template_options.blank_duration,
-						tooltip: 'Instead of including the duration, make the block template read \"You have been blocked from editing temporarily for...\"'
+						tooltip: 'Instead of including the duration, make the block template read "You have been blocked from editing temporarily for..."'
 					}
 				]
 			} );
@@ -406,16 +440,25 @@ Twinkle.block.blockPresetsInfo = {
 		sig: null
 	},
 	'CheckUser block' : {
+		expiry: '1 week',
+		forAnonOnly: true,
+		nocreate: true,
 		nonstandard: true,
 		reason: '{{CheckUser block}}',
 		sig: '~~~~'
 	},
 	'checkuserblock-account' : {
+		autoblock: true,
+		expiry: 'infinity',
+		forRegisteredOnly: true,
+		nocreate: true,
 		nonstandard: true,
 		reason: '{{checkuserblock-account}}',
 		sig: '~~~~'
 	},
 	'checkuserblock-wide' : {
+		forAnonOnly: true,
+		nocreate: true,
 		nonstandard: true,
 		reason: '{{checkuserblock-wide}}',
 		sig: '~~~~'
@@ -428,6 +471,9 @@ Twinkle.block.blockPresetsInfo = {
 		sig: null
 	},
 	'oversightblock' : {
+		autoblock: true,
+		expiry: 'infinity',
+		nocreate: true,
 		nonstandard: true,
 		reason: '{{OversightBlock}}',
 		sig: '~~~~'
@@ -438,6 +484,13 @@ Twinkle.block.blockPresetsInfo = {
 		nonstandard: true,
 		reason: '{{school block}}',
 		sig: '~~~~'
+	},
+	'spamblacklistblock' : {
+		forAnonOnly: true,
+		expiry: '1 month',
+		disabletalk: true,
+		nocreate: true,
+		reason: '{{spamblacklistblock}} <!-- editor only attempts to add blacklisted links, see [[Special:Log/spamblacklist]] -->'
 	},
 	// Placeholder for when we add support for rangeblocks
 	// 'rangeblock' : {
@@ -709,6 +762,14 @@ Twinkle.block.blockPresetsInfo = {
 		reason: '{{cb-ublock-double}} <!-- Username closely resembles another user, soft block -->',
 		summary: 'You have been indefinitely blocked from editing because your [[WP:U|username]] is too similar to the username of another Wikipedia user'
 	},
+	'cb-ucblock' : {
+		autoblock: true,
+		expiry: '31 hours',
+		nocreate: true,
+		pageParam: true,
+		reason: 'Persistent addition of [[Wikipedia:Chú thích nguồn gốc|unsourced content]]',
+		summary: 'You have been blocked from editing for persistent addition of [[Wikipedia:Chú thích nguồn gốc|unsourced content]]'
+	},
 	'cb-uhblock' : {
 		autoblock: true,
 		expiry: 'infinity',
@@ -757,6 +818,14 @@ Twinkle.block.blockPresetsInfo = {
 		pageParam: true,
 		reason: '[[WP:Vandalism-only account|Vandalism-only account]]',
 		summary: 'Bạn đã bị cấm sửa đổi do tài khoản của bạn chỉ dùng để [[Wikipedia:Phá hoại|phá hoại]]'
+	},
+	'zombie proxy' : {
+		expiry: '1 month',
+		forAnonOnly: true,
+		nocreate: true,
+		nonstandard: true,
+		reason: '{{zombie proxy}}',
+		sig: null
 	}
 };
 
@@ -794,6 +863,7 @@ Twinkle.block.blockGroups = [
 			{ label: 'Disruptive editing', value: 'cb-disruptblock' },
 			{ label: 'Inappropriate use of user talk page while blocked', value: 'cb-talkrevoked' },
 			{ label: 'Not here to contribute to the encyclopedia', value: 'cb-nothereblock' },
+			{ label: 'Unsourced content', value: 'cb-ucblock' },
 			{ label: 'Vandalism', value: 'cb-vblock' },
 			{ label: 'Vandalism-only account', value: 'cb-voablock' }
 		],
@@ -850,8 +920,10 @@ Twinkle.block.blockGroups = [
 			{ label: 'colocationwebhost', value: 'colocationwebhost' },
 			{ label: 'oversightblock', value: 'oversightblock' },
 			// { label: 'rangeblock', value: 'rangeblock' }, // placeholder for when we add support for rangeblocks
+			{ label: 'spamblacklistblock', value: 'spamblacklistblock' },
 			{ label: 'tor', value: 'tor' },
-			{ label: 'webhostblock', value: 'webhostblock' }
+			{ label: 'webhostblock', value: 'webhostblock' },
+			{ label: 'zombie proxy', value: 'zombie proxy' }
 		]
 	}
 ];
@@ -900,6 +972,28 @@ Twinkle.block.callback.change_expiry = function twinkleblockCallbackChangeExpiry
 	} else {
 		Morebits.quickForm.setElementVisibility(expiry.parentNode, false);
 		expiry.value = e.target.value;
+	}
+};
+
+Twinkle.block.seeAlsos = [];
+Twinkle.block.callback.toggle_see_alsos = function twinkleblockCallbackToggleSeeAlso() {
+	var reason = this.form.reason.value.replace(
+		new RegExp('( <!--|;) ' + 'see also ' + Twinkle.block.seeAlsos.join(' and ') + '( -->)?'), ''
+	);
+
+	Twinkle.block.seeAlsos = Twinkle.block.seeAlsos.filter(function(el) {
+		return el !== this.value;
+	}.bind(this));
+
+	if (this.checked) Twinkle.block.seeAlsos.push(this.value);
+	var seeAlsoMessage = Twinkle.block.seeAlsos.join(' and ');
+
+	if (!Twinkle.block.seeAlsos.length) {
+		this.form.reason.value = reason;
+	} else if (reason.indexOf('{{') !== -1) {
+		this.form.reason.value = reason + ' <!-- see also ' + seeAlsoMessage + ' -->';
+	} else {
+		this.form.reason.value = reason + '; see also ' + seeAlsoMessage;
 	}
 };
 
@@ -1041,7 +1135,7 @@ Twinkle.block.callback.evaluate = function twinkleblockCallbackEvaluate(e) {
 		api.getToken('block').then(function(token) {
 			statusElement.status('Processing...');
 			blockoptions.token = token;
-			var mbApi = new Morebits.wiki.api( 'Executing block', blockoptions, function(data) {
+			var mbApi = new Morebits.wiki.api( 'Executing block', blockoptions, function() {
 				statusElement.info('Completed');
 				if (toWarn) Twinkle.block.callback.issue_template(templateoptions);
 			});
@@ -1145,7 +1239,7 @@ Twinkle.block.callback.main = function twinkleblockcallbackMain( pageobj ) {
 	// build the edit summary
 	var summary = messageData.summary;
 	if ( messageData.suppressArticleInSummary !== true && params.article ) {
-		summary += ' on [[' + params.article + ']]';
+		summary += ' on [[:' + params.article + ']]';
 	}
 	summary += '.' + Twinkle.getPref('summaryAd');
 
@@ -1156,5 +1250,6 @@ Twinkle.block.callback.main = function twinkleblockcallbackMain( pageobj ) {
 };
 
 })(jQuery);
+
 
 //</nowiki>

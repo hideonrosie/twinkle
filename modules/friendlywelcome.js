@@ -35,7 +35,7 @@ Twinkle.welcome.auto = function() {
 };
 
 Twinkle.welcome.semiauto = function() {
-	Twinkle.welcome.callback( mw.config.get( 'wgTitle' ).split( '/' )[0].replace( /\"/, "\\\"") );
+	Twinkle.welcome.callback( mw.config.get( 'wgTitle' ).split( '/' )[0].replace( /"/, "\\\"") );
 };
 
 Twinkle.welcome.normal = function() {
@@ -85,8 +85,8 @@ Twinkle.welcome.normal = function() {
 		}
 	}
 	if( mw.config.get( 'wgNamespaceNumber' ) === 3 ) {
-		var username = mw.config.get( 'wgTitle' ).split( '/' )[0].replace( /\"/, "\\\""); // only first part before any slashes
-		Twinkle.addPortletLink( function(){ Twinkle.welcome.callback(username); }, "Hoan nghênh", "friendly-welcome", "Hoan nghênh" );
+		var username = mw.config.get( 'wgTitle' ).split( '/' )[0].replace( /"/, "\\\""); // only first part before any slashes
+		Twinkle.addPortletLink( function(){ Twinkle.welcome.callback(username); }, "Chào", "friendly-welcome", "Hoan nghênh người dùng" );
 	}
 };
 
@@ -128,8 +128,8 @@ Twinkle.welcome.callback = function friendlywelcomeCallback( uid ) {
 			label: 'Type of welcome: ',
 			event: Twinkle.welcome.populateWelcomeList,
 			list: [
-				{ type: 'option', value: 'standard', label: 'Standard welcomes', selected: !Morebits.isIPAddress(mw.config.get('wgTitle')) },
-				{ type: 'option', value: 'anonymous', label: 'IP user welcomes', selected: Morebits.isIPAddress(mw.config.get('wgTitle')) },
+				{ type: 'option', value: 'standard', label: 'Standard welcomes', selected: !mw.util.isIPAddress(mw.config.get('wgTitle')) },
+				{ type: 'option', value: 'anonymous', label: 'IP user welcomes', selected: mw.util.isIPAddress(mw.config.get('wgTitle')) },
 				{ type: 'option', value: 'wikiProject', label: 'WikiProject welcomes' },
 				{ type: 'option', value: 'nonEnglish', label: 'Non-English welcomes' }
 			]
@@ -355,7 +355,7 @@ Twinkle.welcome.templates = {
 	"welcome-screen": {
 		description: "welcome message with clear, annotated table of 10 links",
 		linkedArticle: false,
-		syntax: "$HEADER$ {{subst:welcome-screen|static=true}}"
+		syntax: "$HEADER$ {{subst:welcome-screen}}"
 	},
 	"welcome-belated": {
 		description: "welcome for users with more substantial contributions",
@@ -589,7 +589,7 @@ Twinkle.welcome.templates = {
 	"TWA invite": {
 		description: "invite the user to The Wikipedia Adventure (not a welcome template)",
 		linkedArticle: false,
-		syntax: "{{WP:TWA/Invite|signature=~~~~}}"
+		syntax: "{{WP:TWA/InviteTW|signature=~~~~}}"
 	},
 
 	// NON-ENGLISH WELCOMES
@@ -722,7 +722,7 @@ Twinkle.welcome.callbacks = {
 
 		previewDialog.display();
 
-		$(submit).click(function(e) {
+		$(submit).click(function() {
 			previewDialog.close();
 		});
 	},

@@ -40,6 +40,8 @@ print($usage->text), exit if $opt->help || !scalar(@ARGV);
 my %pages = map +("$opt->{base}/$_" => $_), @ARGV;
 my %deploys = (
 	'twinkle.js' => 'MediaWiki:Gadget-Twinkle.js',
+	'twinkle.css' => 'MediaWiki:Gadget-Twinkle.css',
+	'twinkle-pagestyles.css' => 'MediaWiki:Gadget-Twinkle-pagestyles.css',
 	'morebits.js' => 'MediaWiki:Gadget-morebits.js',
 	'morebits.css' => 'MediaWiki:Gadget-morebits.css',
 	'modules/twinkleprod.js' => 'MediaWiki:Gadget-twinkleprod.js',
@@ -73,6 +75,7 @@ my $bot = MediaWiki::Bot->new({
         assert      => 'user',
         protocol    => 'https',
         host        => "$opt->{lang}.$opt->{family}.org",
+        operator    => $opt->username,
         login_data  => { username => $opt->username, password => $opt->password},
         debug => $opt->{verbose} ? 2 : 0,
 		maxlag => 1000000 # not a botty script, thus smash it!

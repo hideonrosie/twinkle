@@ -9,34 +9,53 @@
  *** twinkleprod.js: PROD module
  ****************************************
  * Mode of invocation:     Tab ("Đề nghị xóa")
- * Active on:              Existing articles which are not redirects
+ * Active on:              Existing articles and files which are not redirects
  * Config directives in:   TwinkleConfig
  */
 
 Twinkle.prod = function twinkleprod() {
-	if( mw.config.get('wgNamespaceNumber') !== 0 || !mw.config.get('wgCurRevisionId') || Morebits.wiki.isPageRedirect() ) {
+	if( [0, 6].indexOf(mw.config.get('wgNamespaceNumber')) === -1 || !mw.config.get('wgCurRevisionId') || Morebits.wiki.isPageRedirect() ) {
 		return;
 	}
 
 	Twinkle.addPortletLink( Twinkle.prod.callback, "Đề nghị xóa", "tw-prod", "Đề nghị xóa theo WP:PROD" );
 };
 
+// Used in edit summaries, for comparisons, etc.
+var namespace;
+
 Twinkle.prod.callback = function twinkleprodCallback() {
 	Twinkle.prod.defaultReason = Twinkle.getPref('prodReasonDefault');
+
+	// TODO: add 'book' as well, namespace number 108
+	switch (mw.config.get('wgNamespaceNumber')) {
+		case 0:
+			namespace = 'article';
+			break;
+		case 6:
+			namespace = 'file';
+			break;
+	}
 
 	var Window = new Morebits.simpleWindow( 800, 410 );
 	Window.setTitle( "Đề nghị xóa (PROD)" );
 	Window.setScriptName( "Twinkle" );
 	Window.addFooterLink( "Quy định xóa", "WP:PROD" );
-	Window.addFooterLink( "Quy định xóa về BLP", "WP:BLPPROD" );
+
+	if (namespace === 'article') {
+		Window.addFooterLink( "Quy định xóa về BLP", "WP:BLPPROD" );
+	}
+
 	Window.addFooterLink( "Trợ giúp Twinkle", "WP:TW/DOC#prod" );
 
 	var form = new Morebits.quickForm( Twinkle.prod.callback.evaluate );
 
 	var field = form.append( {
 			type: 'field',
-			label: 'PROD type'
+			label: 'PROD type',
+			id: 'prodtype_fieldset'
 		} );
+
 	field.append( {
 			type: 'radio',
 			name: 'prodtype',
@@ -68,10 +87,15 @@ Twinkle.prod.callback = function twinkleprodCallback() {
 	Window.setContent( result );
 	Window.display();
 
-	// fake a change event on the first prod type radio, to initialize the type-dependent controls
+	// Fake a change event on the first prod type radio, to initialize the type-dependent controls
 	var evt = document.createEvent( "Event" );
 	evt.initEvent( 'change', true, true );
 	result.prodtype[0].dispatchEvent( evt );
+
+	// Hide fieldset for PROD type if File namespace since only normal PROD is allowed
+	if (namespace === 'file') {
+		$('#prodtype_fieldset').hide();
+	}
 };
 
 Twinkle.prod.callback.prodtypechanged = function(event) {
@@ -118,7 +142,7 @@ Twinkle.prod.callback.prodtypechanged = function(event) {
 							label: 'Thông báo cho người tạo trang nếu có thể',
 							value: 'notify',
 							name: 'notify',
-							tooltip: 'Cần thông báo cho người tạo trang.',
+							tooltip: 'Cần thông báo cho người tạo trang ' + namespace + '.',
 							checked: true,
 							disabled: true
 						}
@@ -132,12 +156,6 @@ Twinkle.prod.callback.prodtypechanged = function(event) {
 				type: 'div',
 				label: boldtext
 			});
-			if (mw.config.get('wgArticleId') < 26596183) {
-				field.append({
-					type: 'header',
-					label: 'Có thể thấy rằng bài viết này được tạo trước ngày 18 tháng 3 năm 2010, và nó không thõa nãm các tiêu chuẩn về đề nghị xóa đối với bài viết về tiểu sử người còn sống (BLP PROD). Hãy chắc chắn rằng trường hợp này là ngoại lệ, hoặc có thể sử dụng đề nghị xóa thông thường.'
-				});
-			}
 			break;
 
 		default:
@@ -152,23 +170,22 @@ Twinkle.prod.callbacks = {
 		var statelem = pageobj.getStatusElement();
 
 		if( !pageobj.exists() ) {
-			statelem.error( "Có thể bài chưa không tồn tại, hoặc có thể nó đã bị xóa." );
+			statelem.error( "Hình như trang này không tồn tại. Có lẽ nó đã bị xóa." );
 			return;
 		}
 
 		var text = pageobj.getPageText();
 		var params = pageobj.getCallbackParameters();
 
-		var tag_re = /(\{\{(?:db-?|delete|[aitcmrs]fd|md1)[^{}]*?\|?[^{}]*?\}\})/i;
+		var tag_re = /({{(?:db-?|delete|[aitcmrs]fd|md1)[^{}]*?\|?[^{}]*?}})/i;
 		if( tag_re.test( text ) ) {
 			statelem.warn( 'Một bản mẫu xóa đã được chèn vào trang này, bỏ qua tác vụ' );
 			return;
 		}
 
 		// Remove tags that become superfluous with this action
-		text = text.replace(/\{\{\s*([Nn]ew unreviewed article|[Uu]nreviewed|[Uu]serspace draft)\s*(\|(?:\{\{[^{}]*\}\}|[^{}])*)?\}\}\s*/g, "");
-
-		var prod_re = /\{\{\s*(?:dated prod|dated prod blp|Prod blp\/dated|Proposed deletion\/dated)\s*\|(?:\{\{[^\{\}]*\}\}|[^\}\{])*\}\}/i;
+		text = text.replace(/{{\s*(new unreviewed article|unreviewed|userspace draft|mtc|(copy|move) to wikimedia commons|(copy |move )?to ?commons)\s*(\|(?:{{[^{}]*}}|[^{}])*)?}}\s*/gi, "");
+		var prod_re = /{{\s*(?:dated prod|dated files|dated prod blp|Prod blp\/dated|Proposed deletion\/dated)\s*\|(?:{{[^{}]*}}|[^{}])*}}/i;
 		var summaryText;
 		if( !prod_re.test( text ) ) {
 			// Notification to first contributor
@@ -182,18 +199,18 @@ Twinkle.prod.callbacks = {
 				Twinkle.prod.callbacks.addToLog(params);
 			}
 
-			summaryText = "Bài viết được đề nghị xóa theo [[WP:" + (params.blp ? "BLP" : "") + "PROD]].";
+			summaryText = "Trang " + namespace + " được đề nghị xóa theo [[WP:" + (params.blp ? "BLP" : "") + "PROD]].";
 			text = "{{subst:prod" + (params.blp ? " blp" : ("|1=" + Morebits.string.formatReasonText(params.reason))) + "}}\n" + text;
 		}
 		else {  // already tagged for PROD, so try endorsing it
-			var prod2_re = /\{\{(?:Proposed deletion endorsed|prod-?2).*?\}\}/;
+			var prod2_re = /{{(?:Proposed deletion endorsed|prod-?2).*?}}/;
 			if( prod2_re.test( text ) ) {
 				statelem.warn( 'Bài viết đã được chèn bản mẫu {{proposed deletion}} và {{proposed deletion endorsed}}, bỏ qua tác vụ' );
 				return;
 			}
-			var confirmtext = "Bản mẫu {{proposed deletion}} đã có trong bài viết này. \nBạn có muốn thêm bản mẫu {{proposed deletion endorsed}} kèm theo giải thích của bạn?";
+			var confirmtext = "Bản mẫu {{proposed deletion}} đã có trong trang " + namespace + " này. \nBạn có muốn thêm bản mẫu {{proposed deletion endorsed}} kèm theo giải thích của bạn?";
 			if (params.blp) {
-				confirmtext = "Bản mẫu {{proposed deletion}} không phải BLP đã có trong bài viết này. \nBạn có muốn them bản mẫu {{proposed deletion endorsed}} kèm theo lời giải thích “bài này là tiểu sử người đang sống mà thiếu nguồn gốc”?";
+				confirmtext = "Bản mẫu {{proposed deletion}} không phải BLP đã có trong bài viết này.\nBạn có muốn them bản mẫu {{proposed deletion endorsed}} kèm theo lời giải thích “bài này là tiểu sử người đang sống mà thiếu nguồn gốc”?";
 			}
 			if( !confirm( confirmtext ) ) {
 				statelem.warn( 'Aborted per user request' );
@@ -231,10 +248,13 @@ Twinkle.prod.callbacks = {
 			return;
 		}
 
+		// [[Template:Proposed deletion notify]] supports File namespace
+		var notifyTemplate = params.blp ? 'prodwarningBLP' : 'proposed deletion notify';
+
 		var usertalkpage = new Morebits.wiki.page('Thảo luận Thành viên:' + initialContrib, "Notifying initial contributor (" + initialContrib + ")");
-		var notifytext = "\n{{subst:prodwarning" + (params.blp ? "BLP" : "") + "|1=" + Morebits.pageNameNorm + "|concern=" + params.reason + "}} ~~~~";
+		var notifytext = "\n{{subst:" + notifyTemplate + "|1=" + Morebits.pageNameNorm + "|concern=" + params.reason + "}} ~~~~";
 		usertalkpage.setAppendText(notifytext);
-		usertalkpage.setEditSummary("Notification: proposed deletion of [[" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
+		usertalkpage.setEditSummary("Notification: proposed deletion of [[:" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
 		usertalkpage.setCreateOption('recreate');
 		usertalkpage.setFollowRedirect(true);
 		usertalkpage.append();
@@ -271,13 +291,13 @@ Twinkle.prod.callbacks = {
 
 		var summarytext;
 		if (params.logEndorsing) {
-			text += "\n# [[" + Morebits.pageNameNorm + "]]: endorsed " + (params.blp ? "BLP " : "") + "PROD. ~~~~~";
+			text += "\n# [[:" + Morebits.pageNameNorm + "]]: endorsed " + (params.blp ? "BLP " : "") + "PROD. ~~~~~";
 			if (params.reason) {
 				text += "\n#* '''Lý do''': " + params.reason + "\n";
 			}
-			summarytext = "Logging endorsement of PROD nomination of [[" + Morebits.pageNameNorm + "]].";
+			summarytext = "Logging endorsement of PROD nomination of [[:" + Morebits.pageNameNorm + "]].";
 		} else {
-			text += "\n# [[" + Morebits.pageNameNorm + "]]: " + (params.blp ? "BLP " : "") + "PROD";
+			text += "\n# [[:" + Morebits.pageNameNorm + "]]: " + (params.blp ? "BLP " : "") + "PROD";
 			if (params.logInitialContrib) {
 				text += "; notified {{user|" + params.logInitialContrib + "}}";
 			}
@@ -285,7 +305,7 @@ Twinkle.prod.callbacks = {
 			if (!params.blp) {
 				text += "#* '''Lý do''': " + params.reason + "\n";
 			}
-			summarytext = "Logging PROD nomination of [[" + Morebits.pageNameNorm + "]].";
+			summarytext = "Logging PROD nomination of [[:" + Morebits.pageNameNorm + "]].";
 		}
 
 		pageobj.setPageText(text);
@@ -316,13 +336,6 @@ Twinkle.prod.callback.evaluate = function twinkleprodCallbackEvaluate(e) {
 
 	Morebits.simpleWindow.setButtonsEnabled( false );
 	Morebits.status.init( form );
-
-	if (prodtype === 'prodblp' && mw.config.get('wgArticleId') < 26596183) {
-		if (!confirm( "It appears that this article was created before March 18, 2010, and is thus ineligible for a BLP PROD. Do you want to continue tagging it?" )) {
-			Morebits.status.warn( 'Notice', 'Aborting per user input.' );
-			return;
-		}
-	}
 
 	Morebits.wiki.actionCompleted.redirect = mw.config.get('wgPageName');
 	Morebits.wiki.actionCompleted.notice = "Thêm thông báo hoàn tất";

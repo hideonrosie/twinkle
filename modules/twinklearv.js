@@ -19,7 +19,7 @@ Twinkle.arv = function twinklearv() {
 		return;
 	}
 
-	var title = Morebits.isIPAddress( username ) ? 'Thông báo IP đến bảo quản viên' : 'Thông báo thành viên đến bảo quản viên';
+	var title = mw.util.isIPAddress( username ) ? 'Thông báo IP đến bảo quản viên' : 'Thông báo thành viên đến bảo quản viên';
 
 	Twinkle.addPortletLink( function(){ Twinkle.arv.callback(username); }, "Thông báo BQV", "tw-arv", title );
 };
@@ -160,7 +160,7 @@ Twinkle.arv.callback.changeCategory = function (e) {
 					{
 						label: 'Tài khoản có dấu hiệu chỉ phá hoại',
 						value: 'vandalonly',
-						disabled: Morebits.isIPAddress( root.uid.value )
+						disabled: mw.util.isIPAddress( root.uid.value )
 					},
 					{
 						label: 'Tài khoản có dấu hiệu là spambot hoặc tài khoản bị xân nhập',
@@ -365,7 +365,7 @@ Twinkle.arv.callback.changeCategory = function (e) {
 						$entry.append('<span>"'+rev.parsedcomment+'" vào <a href="'+mw.config.get('wgScript')+'?diff='+rev.revid+'">'+moment(rev.timestamp).calendar()+'</a></span>').appendTo($diffs);
 					}
 				}).fail(function(data){
-					console.log( 'API failed :(', data );
+					console.log( 'API failed :(', data ); // eslint-disable-line no-console
 				});
 				var $warnings = $(root).find('[name=warnings]');
 				$warnings.find('.entry').remove();
@@ -402,7 +402,7 @@ Twinkle.arv.callback.changeCategory = function (e) {
 						$entry.append('<span>"'+rev.parsedcomment+'" at <a href="'+mw.config.get('wgScript')+'?diff='+rev.revid+'">'+moment(rev.timestamp).calendar()+'</a></span>').appendTo($warnings);
 					}
 				}).fail(function(data){
-					console.log( 'API failed :(', data );
+					console.log( 'API failed :(', data ); // eslint-disable-line no-console
 				});
 
 				var $resolves = $(root).find('[name=resolves]');
@@ -460,7 +460,7 @@ Twinkle.arv.callback.changeCategory = function (e) {
 					$free_entry.append($free_label).append($free_input).appendTo($resolves);
 
 				}).fail(function(data){
-					console.log( 'API failed :(', data );
+					console.log( 'API failed :(', data ); // eslint-disable-line no-console
 				});
 			}
 		} );
@@ -580,7 +580,7 @@ Twinkle.arv.callback.evaluate = function(e) {
 				}
 				aivPage.getStatusElement().status( 'Adding new report...' );
 				aivPage.setEditSummary( 'Reporting [[Special:Contributions/' + uid + '|' + uid + ']].' + Twinkle.getPref('summaryAd') );
-				aivPage.setAppendText( '\n*{{' + ( Morebits.isIPAddress( uid ) ? 'IPvandal' : 'vandal' ) + '|' + (/\=/.test( uid ) ? '1=' : '' ) + uid + '}} &ndash; ' + reason );
+				aivPage.setAppendText( '\n*{{' + ( mw.util.isIPAddress( uid ) ? 'IPvandal' : 'vandal' ) + '|' + (/=/.test( uid ) ? '1=' : '' ) + uid + '}} &ndash; ' + reason );
 				aivPage.append();
 			} );
 			break;
@@ -716,7 +716,7 @@ Twinkle.arv.callback.evaluate = function(e) {
 					var page = data.query.pages[pageid];
 					an3_next(page);
 				}).fail(function(data){
-					console.log( 'API failed :(', data );
+					console.log( 'API failed :(', data ); // eslint-disable-line no-console
 				});
 			} else {
 				an3_next();
@@ -770,7 +770,7 @@ Twinkle.arv.processSock = function( params ) {
 	// prepare the SPI report
 	var text = "\n\n{{subst:SPI report|socksraw=" +
 		params.sockpuppets.map( function(v) {
-				return "* {{" + ( Morebits.isIPAddress( v ) ? "checkip" : "checkuser" ) + "|1=" + v + "}}";
+				return "* {{" + ( mw.util.isIPAddress( v ) ? "checkip" : "checkuser" ) + "|1=" + v + "}}";
 			} ).join( "\n" ) + "\n|evidence=" + params.evidence + " \n";
 
 	if ( params.checkuser ) {
@@ -859,7 +859,7 @@ Twinkle.arv.processAN3 = function( params ) {
 			grouped_diffs[lastid].push(cur);
 		}
 
-		var difftext = $.map(grouped_diffs, function(sub, index){
+		var difftext = $.map(grouped_diffs, function(sub) {
 			var ret = "";
 			if(sub.length >= 2) {
 				var last = sub[0];
@@ -916,7 +916,7 @@ Twinkle.arv.processAN3 = function( params ) {
 		talkPage.append();
 		Morebits.wiki.removeCheckpoint();  // all page updates have been started
 	}).fail(function(data){
-		console.log( 'API failed :(', data );
+		console.log( 'API failed :(', data ); // eslint-disable-line no-console
 	});
 };
 })(jQuery);

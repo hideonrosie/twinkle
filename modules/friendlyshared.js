@@ -1,7 +1,7 @@
 //<nowiki>
 
 
-(function($){
+(function($){ // eslint-disable-line no-unused-vars
 
 
 /*
@@ -14,8 +14,8 @@
  */
 
 Twinkle.shared = function friendlyshared() {
-	if( mw.config.get('wgNamespaceNumber') === 3 && Morebits.isIPAddress(mw.config.get('wgTitle')) ) {
-		var username = mw.config.get('wgTitle').split( '/' )[0].replace( /\"/, "\\\""); // only first part before any slashes
+	if( mw.config.get('wgNamespaceNumber') === 3 && mw.util.isIPAddress(mw.config.get('wgTitle')) ) {
+		var username = mw.config.get('wgTitle').split( '/' )[0].replace( /"/, "\\\""); // only first part before any slashes
 		Twinkle.addPortletLink( function(){ Twinkle.shared.callback(username); }, "IP dùng chung", "friendly-shared", "Đánh dấu IP dùng chung" );
 	}
 };
@@ -42,7 +42,7 @@ Twinkle.shared.callback = function friendlysharedCallback() {
 		}
 	} );
 
-	var org = form.append( { type:'field', label:'Fill in other details (optional) and click \"Submit\"' } );
+	var org = form.append( { type:'field', label:'Fill in other details (optional) and click "Submit"' } );
 	org.append( {
 			type: 'input',
 			name: 'organization',

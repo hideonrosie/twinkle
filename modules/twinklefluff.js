@@ -251,7 +251,7 @@ Twinkle.fluff.revertToRevision = function revertToRevision( oldrev ) {
 };
 
 Twinkle.fluff.userIpLink = function( user ) {
-	return (Morebits.isIPAddress(user) ? "[[Special:Contributions/" : "[[User:" ) + user + "|" + user + "]]";
+	return (mw.util.isIPAddress(user) ? "[[Special:Contributions/" : "[[:User:" ) + user + "|" + user + "]]";
 };
 
 Twinkle.fluff.callbacks = {
@@ -288,8 +288,8 @@ Twinkle.fluff.callbacks = {
 				'undoafter': revertToRevID,
 				'basetimestamp': touched,
 				'starttimestamp': starttimestamp,
-				'watchlist': Twinkle.getPref('watchRevertedPages').indexOf( self.params.type ) !== -1 ? 'watch' : undefined,
-				'minor': Twinkle.getPref('markRevertedPagesAsMinor').indexOf( self.params.type ) !== -1  ? true : undefined
+				'watchlist': Twinkle.getPref('watchRevertedPages').indexOf( 'torev' ) !== -1 ? 'watch' : undefined,
+				'minor': Twinkle.getPref('markRevertedPagesAsMinor').indexOf( 'torev' ) !== -1  ? true : undefined
 			};
 
 			Morebits.wiki.actionCompleted.redirect = mw.config.get('wgPageName');
@@ -521,13 +521,26 @@ Twinkle.fluff.callbacks = {
 
 	},
 	complete: function (apiobj) {
-		var $edit = $(apiobj.getXML()).find('edit');
+		// TODO Most of this is copy-pasted from Morebits.wiki.page#fnSaveSuccess. Unify it
+		var xml = apiobj.getXML();
+		var $edit = $(xml).find('edit');
 		var blacklist = $edit.attr('spamblacklist');
 		if (blacklist) {
 			var code = document.createElement('code');
 			code.style.fontFamily = "monospace";
 			code.appendChild(document.createTextNode(blacklist));
-			apiobj.statelem.error(['Could not rollback because the URL ', code, ' is on the spam blacklist.']);
+			apiobj.statelem.error(['Could not rollback, because the URL ', code, ' is on the spam blacklist.']);
+		} else if ( $(xml).find('captcha').length > 0 ) {
+			apiobj.statelem.error("Could not rollback, because the wiki server wanted you to fill out a CAPTCHA.");
+		} else if ( $edit.attr('code') === 'abusefilter-disallowed' ) {
+			apiobj.statelem.error('The edit was disallowed by the edit filter rule "' + $edit.attr('info').substring(17) + '".');
+		} else if ( $edit.attr('info') && $edit.attr('info').indexOf('Hit AbuseFilter:') === 0 ) {
+			var div = document.createElement('div');
+			div.className = "toccolours";
+			div.style.fontWeight = "normal";
+			div.style.color = "black";
+			div.innerHTML = $edit.attr('warning');
+			apiobj.statelem.error([ 'The following warning was returned by the edit filter: ', div, 'If you wish to proceed with the rollback, please reload this page (F5 or Ctrl+R) and carry it out again. This warning will not appear a second time.' ]);
 		} else if ($edit.attr('nochange') === '') {
 			apiobj.statelem.warn("Revision we are reverting to is identical to current revision: Nothing to do");
 		} else {
@@ -573,12 +586,12 @@ Twinkle.fluff.formatSummary = function(builtInString, userName, userString) {
 	if (resultLen + contribsLen <= 255) {
 		var talkLink = " ([[Thảo luận Thành viên:" + userName + "|thảo luận]])";
 		if (resultLen + contribsLen + unescape(encodeURIComponent(talkLink)).length <= 255) {
-			result = result.replace("$USER", contribsLink + talkLink);
+			result = Morebits.string.safeReplace(result, "$USER", contribsLink + talkLink);
 		} else {
-			result = result.replace("$USER", contribsLink);
+			result = Morebits.string.safeReplace(result, "$USER", contribsLink);
 		}
 	} else {
-		result = result.replace("$USER", userName);
+		result = Morebits.string.safeReplace(result, "$USER", userName);
 	}
 
 	return result;

@@ -306,7 +306,7 @@ Twinkle.image.callbacks = {
 			default:
 				break;  // doesn't matter
 		}
-		tag += "}}\n";
+		tag += "|help=off}}\n";
 
 		pageobj.setPageText(tag + text);
 		pageobj.setEditSummary("Tập tin được đề nghị xóa theo [[WP:XN#" + params.normalized + "|XN " + params.normalized + "]] (" + params.type + ")." + Twinkle.getPref('summaryAd'));
@@ -339,7 +339,7 @@ Twinkle.image.callbacks = {
 			}
 			notifytext += "}} ~~~~";
 			usertalkpage.setAppendText(notifytext);
-			usertalkpage.setEditSummary("Thông báo có đề nghị xóa [[" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
+			usertalkpage.setEditSummary("Thông báo: có đề nghị xóa [[:" + Morebits.pageNameNorm + "]]." + Twinkle.getPref('summaryAd'));
 			usertalkpage.setCreateOption('recreate');
 			switch (Twinkle.getPref('deliWatchUser')) {
 				case 'yes':

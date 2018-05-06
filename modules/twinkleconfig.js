@@ -223,11 +223,11 @@ Twinkle.config.sections = [
 	adminOnly: true,
 	preferences: [
 		// TwinkleConfig.blankTalkpageOnIndefBlock (boolean)
-		// if true, blank the talk page when issuing an indef block notice (per [[WP:UW#Indefinitely blocked users]])
+		// if true, blank the talk page when issuing an indef block notice (per [[WP:UWUL#Indefinitely blocked users]])
 		{
 			name: "blankTalkpageOnIndefBlock",
 			label: "Xóa trắng trang thảo luận thành viên khi thành viên bị cấm vĩnh viễn",
-			helptip: "Xem chi tiết tại <a href=\"" + mw.util.getUrl("en:WP:UW#Indefinitely blocked users") + "\">WP:UW</a>.",
+			helptip: "Xem chi tiết tại <a href=\"" + mw.util.getUrl("en:Wikipedia:WikiProject_User_warnings/Usage_and_layout#Indefinitely_blocked_users") + "\">WP:UWUL</a>.",
 			type: "boolean"
 		}
 	]
@@ -1343,7 +1343,7 @@ Twinkle.config.listDialog.display = function twinkleconfigListDialogDisplay(e) {
 	var addButton = document.createElement("button");
 	addButton.style.minWidth = "8em";
 	addButton.setAttribute("type", "button");
-	addButton.addEventListener("click", function(e) {
+	addButton.addEventListener("click", function() {
 		Twinkle.config.listDialog.addRow(dlgtbody);
 	}, false);
 	addButton.textContent = "Add";
@@ -1358,7 +1358,7 @@ Twinkle.config.listDialog.display = function twinkleconfigListDialogDisplay(e) {
 	// buttonpane buttons: [Save changes] [Reset] [Cancel]
 	var button = document.createElement("button");
 	button.setAttribute("type", "submit");  // so Morebits.simpleWindow puts the button in the button pane
-	button.addEventListener("click", function(e) {
+	button.addEventListener("click", function() {
 		Twinkle.config.listDialog.save($prefbutton, dlgtbody);
 		dialog.close();
 	}, false);
@@ -1366,14 +1366,14 @@ Twinkle.config.listDialog.display = function twinkleconfigListDialogDisplay(e) {
 	dialogcontent.appendChild(button);
 	button = document.createElement("button");
 	button.setAttribute("type", "submit");  // so Morebits.simpleWindow puts the button in the button pane
-	button.addEventListener("click", function(e) {
+	button.addEventListener("click", function() {
 		Twinkle.config.listDialog.reset($prefbutton, dlgtbody);
 	}, false);
 	button.textContent = "Reset";
 	dialogcontent.appendChild(button);
 	button = document.createElement("button");
 	button.setAttribute("type", "submit");  // so Morebits.simpleWindow puts the button in the button pane
-	button.addEventListener("click", function(e) {
+	button.addEventListener("click", function() {
 		dialog.close();  // the event parameter on this function seems to be broken
 	}, false);
 	button.textContent = "Cancel";
@@ -1467,7 +1467,7 @@ Twinkle.config.resetPref = function twinkleconfigResetPref(pref, inFriendlyConfi
 			break;
 
 		case "set":
-			$.each(pref.setValues, function(itemkey, itemvalue) {
+			$.each(pref.setValues, function(itemkey) {
 				if (document.getElementById(pref.name + "_" + itemkey)) {
 					document.getElementById(pref.name + "_" + itemkey).checked = ((inFriendlyConfig ?
 						Twinkle.defaultConfig.friendly[pref.name] : Twinkle.defaultConfig.twinkle[pref.name]).indexOf(itemkey) !== -1);
@@ -1528,7 +1528,7 @@ if (!JSON) {
 }
 
 (function() {
-	var escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
+	var escapable = /[\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g, // eslint-disable-line no-control-regex
 		gap,
 		indent = '  ',  // hardcoded indent
 		meta = { '\b': '\\b', '\t': '\\t', '\n': '\\n', '\f': '\\f', '\r': '\\r', '"' : '\\"', '\\': '\\\\' };
@@ -1602,7 +1602,6 @@ if (!JSON) {
 
 Twinkle.config.writePrefs = function twinkleconfigWritePrefs(pageobj) {
 	var form = pageobj.getCallbackParameters();
-	var statelem = pageobj.getStatusElement();
 
 	// this is the object which gets serialized into JSON
 	var newConfig = {
@@ -1683,7 +1682,7 @@ Twinkle.config.writePrefs = function twinkleconfigWritePrefs(pageobj) {
 							});
 						} else {
 							// read all the keys in the list of values
-							$.each(pref.setValues, function(itemkey, itemvalue) {
+							$.each(pref.setValues, function(itemkey) {
 								if (form[pref.name + "_" + itemkey].checked) {
 									userValue.push(itemkey);
 								}
@@ -1748,7 +1747,7 @@ Twinkle.config.writePrefs = function twinkleconfigWritePrefs(pageobj) {
 		"// End of twinkleoptions.js\n";
 
 	pageobj.setPageText(text);
-	pageobj.setEditSummary("Saving Twinkle preferences: automatic edit from [[" + Morebits.pageNameNorm + "]] ([[WP:TW|TW]])");
+	pageobj.setEditSummary("Saving Twinkle preferences: automatic edit from [[:" + Morebits.pageNameNorm + "]] ([[WP:TW|TW]])");
 	pageobj.setCreateOption("recreate");
 	pageobj.save(Twinkle.config.saveSuccess);
 };

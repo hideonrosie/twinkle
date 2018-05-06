@@ -18,21 +18,74 @@ Twinkle.warn = function twinklewarn() {
 			Twinkle.addPortletLink( Twinkle.warn.callback, "Cảnh báo", "tw-warn", "Cảnh báo/thông báo thành viên" );
 	}
 
-	// modify URL of talk page on rollback success pages
+	// Modify URL of talk page on rollback success pages. This is only used
+	// when a user Ctrl+clicks on a rollback link.
 	if( mw.config.get('wgAction') === 'rollback' ) {
 		var $vandalTalkLink = $("#mw-rollback-success").find(".mw-usertoollinks a").first();
 		if ( $vandalTalkLink.length ) {
+			Twinkle.warn.makeVandalTalkLink($vandalTalkLink);
 			$vandalTalkLink.css("font-weight", "bold");
-			$vandalTalkLink.wrapInner($("<span/>").attr("title", "If appropriate, you can use Twinkle to warn the user about their edits to this page."));
-
-			var extraParam = "vanarticle=" + mw.util.rawurlencode(Morebits.pageNameNorm);
-			var href = $vandalTalkLink.attr("href");
-			if (href.indexOf("?") === -1) {
-				$vandalTalkLink.attr("href", href + "?" + extraParam);
-			} else {
-				$vandalTalkLink.attr("href", href + "&" + extraParam);
-			}
 		}
+	}
+
+	// Override the mw.notify function to allow us to inject a link into the
+	// rollback success popup. Only users with the 'rollback' right need this,
+	// but we have no nice way of knowing who has that right (what with global
+	// groups and the like)
+	else if( mw.config.get('wgAction') === 'history' ) {
+		mw.notifyOriginal = mw.notify;
+		mw.notify = function mwNotifyTwinkleOverride(message, options) {
+			// This is a horrible, awful hack to add a link to the rollback success
+			// popup. All other notification popups should be left untouched.
+			// It won't work for people whose user language is not English.
+			// As it's a hack, it's liable to stop working or break sometimes,
+			// particularly if the text or format of the confirmation message
+			// (MediaWiki:Rollback-success-notify) changes.
+			var regexMatch;
+			if ( options && options.title && mw.msg && options.title === mw.msg('actioncomplete') &&
+				message && $.isArray(message) && message[0] instanceof HTMLParagraphElement &&
+				(regexMatch = /^Reverted edits by (.+);\s+changed/.exec(message[0].innerText))
+			) {
+				// Create a nicely-styled paragraph to place the link in
+				var $p = $('<p/>');
+				$p.css("margin", "0.5em -1.5em -1.5em");
+				$p.css("padding", "0.5em 1.5em 0.8em");
+				$p.css("border-top", "1px #666 solid");
+				$p.css("cursor", "default");
+				$p.click(function(e) { e.stopPropagation(); });
+
+				// Create the new talk link and append it to the end of the message
+				var $vandalTalkLink = $('<a/>');
+				$vandalTalkLink.text("Warn user with Twinkle");
+				//$vandalTalkLink.css("display", "block");
+				$vandalTalkLink.attr("href", mw.util.getUrl("User talk:" + regexMatch[1]));
+				Twinkle.warn.makeVandalTalkLink($vandalTalkLink);
+
+				$p.append($vandalTalkLink);
+				message[0].appendChild($p.get()[0]);
+
+				// Don't auto-hide the notification. It only stays around for 5 seconds by
+				// default, which might not be enough time for the user to read it and
+				// click the link
+				options.autoHide = false;
+			}
+			mw.notifyOriginal.apply(mw, arguments);
+		};
+	}
+
+	// for testing, use:
+	// mw.notify([ $("<p>Reverted edits by foo; changed</p>")[0] ], { title: mw.msg('actioncomplete') } );
+};
+
+Twinkle.warn.makeVandalTalkLink = function($vandalTalkLink) {
+	$vandalTalkLink.wrapInner($("<span/>").attr("title", "If appropriate, you can use Twinkle to warn the user about their edits to this page."));
+
+	var extraParam = "vanarticle=" + mw.util.rawurlencode(Morebits.pageNameNorm);
+	var href = $vandalTalkLink.attr("href");
+	if (href.indexOf("?") === -1) {
+		$vandalTalkLink.attr("href", href + "?" + extraParam);
+	} else {
+		$vandalTalkLink.attr("href", href + "&" + extraParam);
 	}
 };
 
@@ -66,7 +119,7 @@ Twinkle.warn.callback = function twinklewarnCallback() {
 	main_group.append( { type: 'option', label: 'Chú ý (2)', value: 'level2', selected: ( defaultGroup === 2 ) } );
 	main_group.append( { type: 'option', label: 'Cảnh báo (3)', value: 'level3', selected: ( defaultGroup === 3 ) } );
 	main_group.append( { type: 'option', label: 'Cảnh báo lần cuối (4)', value: 'level4', selected: ( defaultGroup === 4 ) } );
-	main_group.append( { type: 'option', label: 'Chỉ cảnh báo (4im)', value: 'level4im', selected: ( defaultGroup === 5 ) } );
+	main_group.append( { type: 'option', label: 'Cảnh báo duy nhất (4im)', value: 'level4im', selected: ( defaultGroup === 5 ) } );
 	main_group.append( { type: 'option', label: 'Các thông báo đơn', value: 'singlenotice', selected: ( defaultGroup === 6 ) } );
 	main_group.append( { type: 'option', label: 'Các cảnh báo đơn', value: 'singlewarn', selected: ( defaultGroup === 7 ) } );
 	if( Twinkle.getPref( 'customWarningList' ).length ) {
@@ -959,8 +1012,8 @@ Twinkle.warn.messages = {
 
 	singlewarn: {
 		"cb-3rr": {
-			label: "Violating the three-revert rule; see also cb-ew",
-			summary: "Cảnh báo: Violating the three-revert rule"
+			label: "Potential three-revert rule violation; see also cb-ew",
+			summary: "Cảnh báo: Three-revert rule"
 		},
 		"cb-affiliate": {
 			label: "Affiliate marketing",
@@ -1151,35 +1204,35 @@ Twinkle.warn.callback.change_subcategory = function twinklewarnCallbackChangeSub
 	var main_group = e.target.form.main_group.value;
 	var value = e.target.form.sub_group.value;
 
+	// Tags that don't take a linked article, but something else (often a username).
+	// The value of each tag is the label next to the input field
+	var notLinkedArticle = {
+		"cb-agf-sock": "Optional username of other account (without User:) ",
+		"cb-bite": "Username of 'bitten' user (without User:) ",
+		"cb-socksuspect": "Username of sock master, if known (without User:) ",
+		"cb-username": "Username violates policy because... "
+	};
+
 	if( main_group === 'singlenotice' || main_group === 'singlewarn' ) {
-		if( value === 'cb-bite' || value === 'cb-username' || value === 'cb-socksuspect' ) {
+		if( notLinkedArticle[value] ) {
 			if(Twinkle.warn.prev_article === null) {
 				Twinkle.warn.prev_article = e.target.form.article.value;
 			}
 			e.target.form.article.notArticle = true;
 			e.target.form.article.value = '';
+
+			// change form labels according to the warning selected
+			Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
+			Morebits.quickForm.overrideElementLabel(e.target.form.article, notLinkedArticle[value]);
 		} else if( e.target.form.article.notArticle ) {
 			if(Twinkle.warn.prev_article !== null) {
 				e.target.form.article.value = Twinkle.warn.prev_article;
 				Twinkle.warn.prev_article = null;
 			}
 			e.target.form.article.notArticle = false;
+			Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, true);
+			Morebits.quickForm.resetElementLabel(e.target.form.article);
 		}
-	}
-
-	// change form labels according to the warning selected
-	if (value === "cb-socksuspect") {
-		Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
-		Morebits.quickForm.overrideElementLabel(e.target.form.article, "Username of sock master, if known (without User:) ");
-	} else if (value === "cb-username") {
-		Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
-		Morebits.quickForm.overrideElementLabel(e.target.form.article, "Username violates policy because... ");
-	} else if (value === "cb-bite") {
-		Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
-		Morebits.quickForm.overrideElementLabel(e.target.form.article, "Username of 'bitten' user (without User:) ");
-	} else {
-		Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, true);
-		Morebits.quickForm.resetElementLabel(e.target.form.article);
 	}
 
 	// add big red notice, warning users about how to use {{cb-[coi-]username}} appropriately
@@ -1303,7 +1356,7 @@ Twinkle.warn.callbacks = {
 		text += Twinkle.warn.callbacks.getWarningWikitext(params.sub_group, params.article,
 			params.reason, params.main_group === 'custom') + " ~~~~";
 
-		if ( Twinkle.getPref('showSharedIPNotice') && Morebits.isIPAddress( mw.config.get('wgTitle') ) ) {
+		if ( Twinkle.getPref('showSharedIPNotice') && mw.util.isIPAddress( mw.config.get('wgTitle') ) ) {
 			Morebits.status.info( 'Info', 'Đang thêm thông báo cho IP chung' );
 			text +=  "\n{{thế:Khuyên IP chung}}";
 		}
@@ -1339,10 +1392,11 @@ Twinkle.warn.callbacks = {
 		} else {
 			summary = messageData.summary;
 			if ( messageData.suppressArticleInSummary !== true && params.article ) {
-				if ( params.sub_group === "cb-socksuspect" ) {  // this template requires a username
+				if ( params.sub_group === "cb-agf-sock" ||
+						params.sub_group === "uw-socksuspect" ) {  // these templates require a username
 					summary += " của [[Thành viên:" + params.article + "]]";
 				} else {
-					summary += " tại trang [[" + params.article + "]]";
+					summary += " tại trang [[:" + params.article + "]]";
 				}
 			}
 		}

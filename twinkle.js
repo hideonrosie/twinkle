@@ -5,11 +5,11 @@
  * |           Please discuss changes at [[WT:TW]] before editing.           |
  * +-------------------------------------------------------------------------+
  *
- * Imported from github [https://github.com/azatoth/twinkle].
+ * Imported from github [https://github.com/1ec5/twinkle].
  * All changes should be made in the repository, otherwise they will be lost.
  *
  * To update this script from github, you must have a local repository set up. Then
- * follow the instructions at [https://github.com/azatoth/twinkle/blob/master/README.md].
+ * follow the instructions at [https://github.com/1ec5/twinkle/blob/master/README.md].
  *
  * ----------
  *

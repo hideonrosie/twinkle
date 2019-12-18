@@ -427,7 +427,7 @@ Twinkle.fluff.callbacks = {
 
 		case 'vand':
 
-			summary = "Đã lùi lại " + self.params.count + "sửa đổi của [[Đặc biệt:Đóng góp/" +
+			summary = "Đã lùi lại " + self.params.count + " sửa đổi của [[Đặc biệt:Đóng góp/" +
 				self.params.user + "|" + self.params.user + "]] ([[Thảo luận Thành viên:" + self.params.user + "|thảo luận]]), quay về phiên bản cuối của " +
 				self.params.gooduser + "." + Twinkle.getPref('summaryAd');
 			break;

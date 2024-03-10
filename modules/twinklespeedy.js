@@ -26,12 +26,12 @@
 			return;
 		}
 	
-		Twinkle.addPortletLink(Twinkle.speedy.callback, 'Xóa nhanh', 'tw-csd', Morebits.userIsSysop ? 'Xóa trang theo WP:XN' : 'Đề nghị xóa nhanh theo WP:XN');
+		Twinkle.addPortletLink(Twinkle.speedy.callback, 'Xóa nhanh', 'tw-csd', Morebits.userIsSysop || Morebits.userIsInGroup('eliminator') ? 'Xóa trang theo WP:TCXN' : 'Đề nghị xóa nhanh theo WP:XN');
 	};
 	
 	// This function is run when the CSD tab/header link is clicked
 	Twinkle.speedy.callback = function twinklespeedyCallback() {
-		Twinkle.speedy.initDialog(Morebits.userIsSysop ? Twinkle.speedy.callback.evaluateSysop : Twinkle.speedy.callback.evaluateUser, true);
+		Twinkle.speedy.initDialog(Morebits.userIsSysop || Morebits.userIsInGroup('eliminator') ? Twinkle.speedy.callback.evaluateSysop : Twinkle.speedy.callback.evaluateUser, true);
 	};
 	
 	// Used by unlink feature
@@ -83,19 +83,19 @@
 		dialog = Twinkle.speedy.dialog;
 		dialog.setTitle('Chọn tiêu chí xóa nhanh');
 		dialog.setScriptName('Twinkle');
-		dialog.addFooterLink('Chính sách xóa nhanh', 'WP:CSD');
+		dialog.addFooterLink('Quy định xóa nhanh', 'WP:TCXN');
 		dialog.addFooterLink('Trợ giúp Twinkle', 'WP:TW/DOC#xóa_nhanh');
 	
 		var form = new Morebits.quickForm(callbackfunc, Twinkle.getPref('speedySelectionStyle') === 'radioClick' ? 'change' : null);
-		if (Morebits.userIsSysop) {
+		if (Morebits.userIsSysop || Morebits.userIsInGroup('eliminator')) {
 			form.append({
 				type: 'checkbox',
 				list: [
 					{
-						label: 'Chỉ gán nhãn trang, không xóa',
+						label: 'Chỉ gắn thẻ trang, không xóa',
 						value: 'tag_only',
 						name: 'tag_only',
-						tooltip: 'Nếu bạn chỉ muốn gán nhãn trang, thay vì xóa nhanh ngay lúc này',
+						tooltip: 'Chọn tùy chọn này nếu bạn chỉ muốn gắn thẻ trang thay vì xóa nhanh ngay lúc này.',
 						checked: !(Twinkle.speedy.hasCSD || Twinkle.getPref('deleteSysopDefaultToDelete')),
 						event: function(event) {
 							var cForm = event.target.form;
@@ -133,7 +133,7 @@
 				type: 'header',
 				label: 'Các tùy chọn liên quan đến việc xóa trang'
 			});
-			if (mw.config.get('wgNamespaceNumber') % 2 === 0 && (mw.config.get('wgNamespaceNumber') !== 2 || (/\//).test(mw.config.get('wgTitle')))) {  // hide option for user pages, to avoid accidentally deleting user talk page
+			if (mw.config.get('wgNamespaceNumber') % 2 === 0 && (mw.config.get('wgNamespaceNumber') !== 2 || (/\//).test(mw.config.get('wgTitle')))) {  // ẩn chức năng đối với trang thành viên để BQV và ĐPV không xóa nhầm thảo luận thành viên
 				deleteOptions.append({
 					type: 'checkbox',
 					list: [
@@ -154,10 +154,10 @@
 				type: 'checkbox',
 				list: [
 					{
-						label: 'Đồng thời xóa tất cả các trang chuyển hướng',
+						label: 'Đồng thời xóa tất cả các trang đổi hướng',
 						value: 'redirects',
 						name: 'redirects',
-						tooltip: 'Tùy chọn này cũng xóa thêm tất cả các trang chuyển hướng đến. Hãy tránh dùng tùy chọn này cho các tác vụ xóa theo thủ tục (ví dụ: di chuyển/hợp nhất).',
+						tooltip: 'Tùy chọn này cũng xóa thêm tất cả các trang đổi hướng đến. Hãy tránh dùng tùy chọn này cho các tác vụ xóa theo thủ tục (ví dụ: di chuyển/hợp nhất).',
 						checked: Twinkle.getPref('deleteRedirectsOnDelete'),
 						event: function(event) {
 							event.stopPropagation();
@@ -203,10 +203,10 @@
 			name: 'tag_options'
 		});
 	
-		if (Morebits.userIsSysop) {
+		if (Morebits.userIsSysop || Morebits.userIsInGroup('eliminator')) {
 			tagOptions.append({
 				type: 'header',
-				label: 'Các tùy chọn liên quan đến nhãn'
+				label: 'Các tùy chọn liên quan đến thẻ'
 			});
 		}
 	
@@ -217,7 +217,7 @@
 					label: 'Thông báo cho người tạo trang nếu có thể',
 					value: 'notify',
 					name: 'notify',
-					tooltip: 'Một bản mẫu thông báo sẽ được đặt trên trang thảo luận của người tạo trang. Người tạo trang cũng có thể được hoan nghênh.',
+					tooltip: 'Một bản mẫu thông báo sẽ được đặt trên trang thảo luận của người tạo trang. Người tạo trang cũng có thể được chào mừng.',
 					//checked: !Morebits.userIsSysop || !(Twinkle.speedy.hasCSD || Twinkle.getPref('deleteSysopDefaultToDelete')),
 					checked: true, // đặt thẳng là true không cần qua cấu hình ở Twinkle
 					event: function(event) {
@@ -230,10 +230,10 @@
 			type: 'checkbox',
 			list: [
 				{
-					label: 'Gán nhãn để khóa việc tạo trang',
+					label: 'Gắn thẻ để khóa khởi tạo trang',
 					value: 'salting',
 					name: 'salting',
-					tooltip: 'Khi được chọn, nhãn xóa nhanh sẽ được kèm theo nhãn {{salt}} để yêu cầu quản trị viên khi xóa trang áp dụng biện pháp khóa tạo trang. Chỉ chọn chức năng này nếu trang bị xóa được tạo đi tạo lại nhiều lần.',
+					tooltip: 'Khi được chọn, thẻ xóa nhanh sẽ được đặt kèm theo thẻ {{salt}} để yêu cầu bảo quản viên hoặc điều phối viên khi xóa trang kích hoạt thêm chức năng khóa khởi tạo trang. Chỉ nên chọn chức năng này nếu trang bị xóa được tạo đi tạo lại nhiều lần.',
 					event: function(event) {
 						event.stopPropagation();
 					}
@@ -244,7 +244,7 @@
 			type: 'checkbox',
 			list: [
 				{
-					label: 'Gán nhãn với nhiều tiêu chí',
+					label: 'Gắn thẻ với nhiều tiêu chí',
 					value: 'multiple',
 					name: 'multiple',
 					tooltip: 'Chọn chức năng này nếu bạn muốn áp dụng nhiều tiêu chí cho trang sẽ bị xóa.',
@@ -259,7 +259,7 @@
 		form.append({
 			type: 'div',
 			name: 'work_area',
-			label: 'Không thể khởi chạy mô đun CSD. Vui lòng thử lại hoặc báo với các nhà phát triển Twinkle về vấn đề này.'
+			label: 'Không thể khởi chạy mô đun CSD. Vui lòng thử lại hoặc báo với các bảo trì viên Twinkle về vấn đề này.'
 		});
 	
 		if (Twinkle.getPref('speedySelectionStyle') !== 'radioClick') {
@@ -309,7 +309,7 @@
 		} else {
 			$('[name=delete_options]').hide();
 			$('[name=tag_options]').show();
-			$('button.tw-speedy-submit').text('Gán nhãn trang');
+			$('button.tw-speedy-submit').text('Gắn thẻ trang');
 		}
 	
 		var work_area = new Morebits.quickForm.element({
@@ -327,7 +327,7 @@
 			work_area.append({
 				type: 'button',
 				name: 'submit-multiple',
-				label: isSysopMode ? 'Xóa trang' : 'Gán thẻ trang',
+				label: isSysopMode ? 'Xóa trang' : 'Gắn thẻ trang',
 				event: function(event) {
 					Twinkle.speedy.callback[evaluateType](event);
 					event.stopPropagation();
@@ -367,7 +367,7 @@
 					work_area.append({ type: 'header', label: 'Tập tin' });
 					work_area.append({ type: radioOrCheckbox, name: 'csd', list: Twinkle.speedy.generateCsdList(Twinkle.speedy.fileList, mode) });
 					if (!isSysopMode) {
-						work_area.append({ type: 'div', label: 'Gán thẻ cho CSD TT4 (Thiếu thông tin cấp phép), TT5 (Tập tin không tự do nhưng không được sử dụng), TT6 (Thiếu lý do sử dụng hợp lý với tập tin không tự do), và T11 ( Không có bằng chứng về việc cho phép sử dụng) có thể được thực hiện bằng cách sử dụng Tab "DI" trong Twinkle.' });
+						work_area.append({ type: 'div', label: 'Gắn thẻ cho CSD TT4 (Thiếu thông tin cấp phép), TT5 (Tập tin không tự do nhưng không được sử dụng), TT6 (Thiếu lý do sử dụng hợp lý với tập tin không tự do), và T11 ( Không có bằng chứng về việc cho phép sử dụng) có thể được thực hiện bằng cách sử dụng Tab "Đề nghị xóa hình" của Twinkle.' });
 					}
 					break;
 	
@@ -385,7 +385,7 @@
 	
 				case 100:  // portal
 				case 101:  // portal talk
-					work_area.append({ type: 'header', label: 'Chủ đề' });
+					work_area.append({ type: 'header', label: 'Cổng thông tin' });
 					work_area.append({ type: radioOrCheckbox, name: 'csd', list: Twinkle.speedy.generateCsdList(Twinkle.speedy.portalList, mode) });
 					break; 
 	
@@ -498,7 +498,7 @@
 					criterion.subgroup = criterion.subgroup.concat({
 						type: 'button',
 						name: 'submit',
-						label: isSysopMode ? 'Delete page' : 'Tag page',
+						label: isSysopMode ? 'Xóa trang' : 'Gắn thẻ trang',
 						event: submitSubgroupHandler
 					});
 				} else {
@@ -507,7 +507,7 @@
 						{
 							type: 'button',
 							name: 'submit',  // ends up being called "csd.submit" so this is OK
-							label: isSysopMode ? 'Delete page' : 'Tag page',
+							label: isSysopMode ? 'Xóa trang' : 'Gắn thẻ trang',
 							event: submitSubgroupHandler
 						}
 					];
@@ -522,7 +522,7 @@
 	
 	Twinkle.speedy.customRationale = [
 		{
-			label: 'Tiêu chí tùy chọn' + (Morebits.userIsSysop ? ' (lý do xóa tùy chọn)' : ' sử dụng bản mẫu {{db}}'),
+			label: 'Tiêu chí tùy chọn' + (Morebits.userIsSysop || Morebits.userIsInGroup('eliminator') ? ' (lý do xóa tùy chọn)' : ' sử dụng bản mẫu {{db}}'),
 			value: 'reason',
 			tooltip: 'Tên bản mẫu {{db}} là viết tắt của "xóa bởi vì" (delete because). Trang sắp bị xóa phải được áp dụng tối thiểu một trong các tiêu chí xóa nhanh với lý do hợp lý. Lưu ý đây không phải là tiêu chí "chung cho tất cả trường hợp" khi bạn không thể tìm thấy bất kỳ tiêu chí xóa nhanh nào phù hợp.',
 			subgroup: {
@@ -539,7 +539,7 @@
 		{
 			label: 'C8: Các trang thảo luận không có trang chủ đề tương ứng',
 			value: 'talk',
-			tooltip: 'Tiêu chí này không bao gồm bất kỳ trang nào hữu ích cho dự án - cụ thể là các trang thảo luận của người dùng, trang lưu trữ trang thảo luận và các trang thảo luận của các tập tin đang tồn tại ở Wikimedia Commons.'
+			tooltip: 'Tiêu chí này không bao gồm bất kỳ trang nào hữu ích cho dự án - cụ thể là các trang thảo luận của thành viên, trang lưu trữ trang thảo luận và các trang thảo luận của các tập tin đang tồn tại ở Wikimedia Commons.'
 		}
 	];
 	
@@ -553,13 +553,13 @@
 				name: 'redundantimage_filename',
 				type: 'input',
 				label: 'Tập tin dư thừa là vì: ',
-				tooltip: 'Tiến tố "File:" có thể bỏ qua.'
+				tooltip: 'Tiến tố "Tập tin:" có thể bỏ qua.'
 			}
 		},
 		{
 			label: 'TT2: Tập tin bị hỏng, thất lạc hoặc trống',
 			value: 'noimage',
-			tooltip: 'Trước khi xóa loại tập tin này, hãy xác minh rằng công cụ MediaWiki không thể đọc tập tin bằng cách xem trước hình thu nhỏ đã thay đổi kích thước của tập tin. Điều này cũng bao gồm các trang mô tả tập tin trống (tức là không có nội dung) cho các tập tin Commons'
+			tooltip: 'Trước khi xóa loại tập tin này, hãy xác minh rằng phần mềm MediaWiki không thể đọc tập tin bằng cách xem trước hình thu nhỏ đã thay đổi kích thước của tập tin. Điều này cũng bao gồm các trang mô tả tập tin trống (tức là không có nội dung) cho các tập tin Commons'
 		},
 		{
 			label: 'TT3: Giấy phép không phù hợp',
@@ -569,13 +569,13 @@
 		{
 			label: 'TT4: Thiếu thông tin cấp phép',
 			value: 'unksource',
-			tooltip: 'Các tập tin trong danh mục "Thể loại:Tập tin có nguồn không xác định", "Tập tin có trạng thái bản quyền không xác định" hoặc "Tập tin không có thẻ bản quyền" đã được gắn thẻ bằng mẫu đặt chúng trong danh mục hơn "7 ngày", bất kể thời điểm tải lên. Lưu ý, người dùng đôi khi đặc tả nguồn của họ trong phần tóm tắt tải lên, vì vậy hãy nhớ kiểm tra bối cảnh của tập tin.',
+			tooltip: 'Các tập tin trong danh mục "Thể loại:Tập tin có nguồn không xác định", "Tập tin có trạng thái bản quyền không xác định" hoặc "Tập tin không có thẻ bản quyền" đã được gắn thẻ bằng mẫu đặt chúng trong danh mục hơn "7 ngày", bất kể thời điểm tải lên. Lưu ý, thành viên đôi khi ghi rằng họ chính là người tạo ra tác phẩm, vì thế cần được xem xét kỹ lưỡng',
 			hideWhenUser: true
 		},
 		{
 			label: 'TT5: Tập tin không tự do nhưng không được sử dụng',
 			value: 'tt5',
-			tooltip: 'Các tập tin không theo giấy phép miễn phí hoặc trong miền công cộng không được sử dụng trong bất kỳ bài viết nào, mà mục đích sử dụng duy nhất là trong một bài viết đã bị xóa và rất ít có khả năng được sử dụng trên bất kỳ bài viết nào khác. Các ngoại lệ hợp lý có thể được thực hiện cho các tập tin được tải lên cho một bài viết sắp tới. Đối với các tập tin không miễn phí không được sử dụng khác, hãy sử dụng tùy chọn "Tập tin không tự do nhưng không được sử dụng" trong tab "DI" của Twinkle.',
+			tooltip: 'Các tập tin không theo giấy phép tự do hoặc trong phạm vi công cộng không được sử dụng trong bất kỳ bài viết nào, mà mục đích sử dụng duy nhất là trong một bài viết đã bị xóa và rất ít có khả năng được sử dụng trên bất kỳ bài viết nào khác. Các trường hợp ngoại lệ phù hợp có thể được thực hiện cho các tập tin được tải lên cho một bài viết sắp tới. Đối với các tập tin không tự do không được sử dụng khác, hãy sử dụng tùy chọn "Tập tin không tự do nhưng không được sử dụng" trong tab "DI" của Twinkle.',
 			hideWhenUser: true
 		},
 		{
@@ -598,7 +598,7 @@
 		{
 			label: 'TT8: Các hình ảnh có sẵn dưới dạng các bản sao giống hệt nhau ở Wikimedia Commons',
 			value: 'commons',
-			tooltip: 'Đáp ứng các điều kiện sau: 1: Định dạng tập tin của cả hai hình ảnh đều giống nhau. 2: Giấy phép và trạng thái nguồn của tập tin vượt quá mức nghi ngờ hợp lý, và giấy phép chắc chắn được chấp nhận tại Commons. 3: Tất cả thông tin trên trang mô tả tập tin đều có trên trang mô tả tập tin Commons. Điều đó bao gồm toàn bộ lịch sử tải lên với các liên kết đến các trang người dùng cục bộ (địa phương) của người tải lên. 4: Tập tin không được bảo vệ và trang mô tả tập tin không có yêu cầu không chuyển nó đến Commons. 5: Nếu tập tin có sẵn trên Commons dưới một tên khác với tên cục bộ, tất cả các tham chiếu cục bộ đến tập tin phải được cập nhật để trỏ đến tiêu đề được sử dụng tại Commons. 6: Đối với các tập tin {{c-upload}}: có thể bị xóa nhanh chóng ngay khi bị gỡ bỏ khỏi Trang Chính',
+			tooltip: 'Đáp ứng các điều kiện sau: 1: Định dạng tập tin của cả hai hình ảnh đều giống nhau. 2: Giấy phép và trạng thái nguồn của tập tin vượt quá mức nghi ngờ hợp lý, và giấy phép chắc chắn được chấp nhận tại Commons. 3: Tất cả thông tin trên trang mô tả tập tin đều có trên trang mô tả tập tin Commons. Điều đó bao gồm toàn bộ lịch sử tải lên với các liên kết đến các trang thành viên (địa phương) của người tải lên. 4: Tập tin không được khóa và trang mô tả tập tin không có yêu cầu không chuyển nó đến Commons. 5: Nếu tập tin có sẵn trên Commons dưới một tên khác với tên địa phương, tất cả các tham chiếu địa phương đến tập tin phải được cập nhật để trỏ đến tiêu đề được sử dụng tại Commons. 6: Đối với các tập tin {{c-upload}}: có thể bị xóa nhanh chóng ngay khi bị gỡ bỏ khỏi Trang Chính',
 			subgroup: {
 				name: 'commons_filename',
 				type: 'input',
@@ -611,7 +611,7 @@
 		{
 			label: 'TT9. Rõ ràng vi phạm bản quyền',
 			value: 'imgcopyvio',
-			tooltip: 'Tập tin được sao chép từ một trang web hoặc nguồn khác không có giấy phép tương thích với Wikipedia và người tải lên không tuyên bố sử dụng hợp pháp cũng không đưa ra lời khẳng định đáng tin cậy về việc cho phép sử dụng tự do. Các nguồn không có giấy phép tương thích với Wikipedia bao gồm các thư viện ảnh có sẵn như Getty Images hoặc Corbis. Các vi phạm bản quyền không trắng trợn nên được thảo luận tại Wikipedia:Biểu quyết xoá tập tin',
+			tooltip: 'Tập tin được sao chép từ một trang web hoặc nguồn khác không có giấy phép tương thích với Wikipedia và người tải lên không tuyên bố sử dụng hợp pháp cũng không đưa ra lời khẳng định đáng tin cậy về việc cho phép sử dụng tự do. Các nguồn không có giấy phép tương thích với Wikipedia bao gồm các thư viện ảnh có sẵn như Getty Images hoặc Corbis. Các trường hợp không chắc là vi phạm bản quyền nên được thảo luận tại Wikipedia:Biểu quyết xoá tập tin',
 			subgroup: [
 				{
 					name: 'imgcopyvio_url',
@@ -674,7 +674,7 @@
 		{
 			label: 'TL1. Thể loại trống hoặc không cần thiết',
 			value: 'theloaitrong',
-			tooltip: 'Tiêu chí này áp dụng cho các thể loại trống hoặc không cần thiết. Đối với các thể loại bảo quản (ví dụ như [[Thể loại:Chờ xóa]]) thì phải đặt nhãn {{tl|Thể loại trống}} để đánh dấu và các thể loại này không thuộc diện xóa nhanh.'
+			tooltip: 'Tiêu chí này áp dụng cho các thể loại trống hoặc không cần thiết. Đối với các thể loại bảo quản (ví dụ như [[Thể loại:Chờ xóa]]) thì phải đặt nhãn {{Thể loại trống}} để đánh dấu và các thể loại này không thuộc diện xóa nhanh.'
 		},
 		{
 			label: 'TL2. Tên thể loại sai',
@@ -691,8 +691,8 @@
 			subgroup: mw.config.get('wgNamespaceNumber') === 3 && mw.config.get('wgTitle').indexOf('/') === -1 ? {
 				name: 'userreq_rationale',
 				type: 'input',
-				label: 'Lý do bắt buộc để giải thích lý do tại sao nên xóa trang thảo luận của người dùng này: ',
-				tooltip: 'Các trang thảo luận của người dùng chỉ bị xóa trong những trường hợp đặc biệt nghiêm trọng. Xem [[Wikipedia:Trang_thành_viên#Xóa_trang_thành_viên|Xóa trang thành viên]].',
+				label: 'Lý do bắt buộc để giải thích lý do tại sao nên xóa trang thảo luận của thành viên này: ',
+				tooltip: 'Các trang thảo luận của thành viên chỉ bị xóa trong những trường hợp đặc biệt nghiêm trọng. Xem [[Wikipedia:Trang_thành_viên#Xóa_trang_thành_viên|Xóa trang thành viên]].',
 				size: 60
 			} : null,
 			hideSubgroupWhenMultiple: true
@@ -705,7 +705,7 @@
 		{
 			label: 'TV3. Chứa nhiều hình không tự do',
 			value: 'tvhinhkhongtudo',
-			tooltip: 'Tiêu chí này áp dụng cho [[Trợ giúp:Hình ảnh|các hình ảnh]] trong không gian người dùng, bao gồm hầu hết hoặc toàn bộ [[Wikipedia:Nội dung không tự do|hình ảnh không tự do hoặc "sử dụng hợp lý"]].',
+			tooltip: 'Tiêu chí này áp dụng cho [[Trợ giúp:Hình ảnh|các hình ảnh]] trong không gian thành viên, bao gồm hầu hết hoặc toàn bộ [[Wikipedia:Nội dung không tự do|hình ảnh không tự do hoặc "sử dụng hợp lý"]].',
 			hideWhenRedirect: true
 		}
 	];
@@ -719,7 +719,7 @@
 		{
 			label: 'BM2. Bản mẫu/Mô đun không thể được sử dụng hữu ích theo bất kỳ cách nào hoặc theo biểu quyết đồng thuận',
 			value: 'banmaukhonghuuich',
-			tooltip: 'Tiêu chí này áp dụng cho các bản mẫu/mô đun không được sử dụng hữu ích. Quản trị viên cần phải xem xét kỹ lưỡng bản mẫu/mô đun có thật sự hữu ích với Wikipedia hay không trước khi xóa nhanh. Lưu ý các bản mẫu/mô đun quan trọng nhiều người xem hoặc được nhúng ở nhiều trang khác thì không thuộc diện xóa nhanh. Nếu không thể xóa nhanh, bản mẫu/mô đun nên được đưa ra thảo luận tìm đồng thuận để quyết định xóa hay giữ. Tiêu chí này sẽ có hiệu lực nếu biểu quyết đồng thuận có kết quả là xóa. ',
+			tooltip: 'Tiêu chí này áp dụng cho các bản mẫu/mô đun không được sử dụng hữu ích. Bảo quản viên hoặc điều phối viên cần phải xem xét kỹ lưỡng bản mẫu/mô đun có thật sự hữu ích với Wikipedia hay không trước khi xóa nhanh. Lưu ý các bản mẫu/mô đun quan trọng nhiều người xem hoặc được nhúng ở nhiều trang khác thì không thuộc diện xóa nhanh. Nếu không thể xóa nhanh, bản mẫu/mô đun nên được đưa ra thảo luận tìm đồng thuận để quyết định xóa hay giữ. Tiêu chí này sẽ có hiệu lực nếu biểu quyết đồng thuận có kết quả là xóa. ',
 			subgroup: {
 				name: 'bieuquyet_url',
 				type: 'input',
@@ -784,7 +784,7 @@
 			}
 		},
 		{
-			label: 'C5. Trang do thành viên bị cấm tạo ra',
+			label: 'C5. Trang do thành viên bị cấm hoặc cấm chỉ tạo ra',
 			value: 'banned',
 			tooltip: 'Tiêu chí này áp dụng với những trang do [[:Thể loại:Thành viên Wikipedia bị cấm|các thành viên bị cấm]] tạo ra mà vi phạm [[Wikipedia:Quy định cấm thành viên|lệnh cấm]].',
 			subgroup: {
@@ -802,7 +802,7 @@
 		{
 			label: 'C7. Người viết/Tác giả yêu cầu xóa',
 			value: 'author',
-			tooltip: 'Tiêu chí này áp dụng trong trường hợp chính tác giả yêu cầu xoá (một cách có thiện chí) và đây phải là tác giả đóng góp nội dung chủ yếu của trang.',
+			tooltip: 'Tiêu chí này áp dụng trong trường hợp chính tác giả yêu cầu xóa (một cách có thiện chí) và đây phải là tác giả đóng góp nội dung chủ yếu của trang.',
 			subgroup: {
 				name: 'author_rationale',
 				type: 'input',
@@ -1010,31 +1010,31 @@
 	
 			// disallow notifying yourself
 			if (initialContrib === mw.config.get('wgUserName')) {
-				Morebits.status.warn('Bạn (' + initialContrib + ') đã tạo trang này; bỏ qua thông báo người dùng');
+				Morebits.status.warn('Bạn (' + initialContrib + ') đã tạo trang này; đang bỏ qua thông báo thành viên');
 				initialContrib = null;
 	
-			// không thông báo cho người dùng khi trang thảo luận của người dùng của họ được đề cử/xóa
+			// không thông báo cho thành viên khi trang thảo luận của thành viên của họ được đề cử/xóa
 			} else if (initialContrib === mw.config.get('wgTitle') && mw.config.get('wgNamespaceNumber') === 3) {
-				Morebits.status.warn('Đang thông báo cho người đóng góp ban đầu: người dùng này đã tạo trang thảo luận người dùng của riêng mình; bỏ qua thông báo');
+				Morebits.status.warn('Đang thông báo cho người đóng góp ban đầu: thành viên này đã tạo trang thảo luận thành viên của riêng mình; bỏ qua thông báo');
 				initialContrib = null;
 	
-			// quick hack to prevent excessive unwanted notifications, per request. Should actually be configurable on recipient page...
-			} else if ((initialContrib === 'Cyberbot I' || initialContrib === 'SoxBot') && params.normalizeds[0] === 'tt2') {
-				Morebits.status.warn('Thông báo cho người đóng góp ban đầu: trang được tạo bởi bot; bỏ qua thông báo');
-				initialContrib = null;
+			// Chưa có bot làm việc này nên ẩn tạm...
+			// } else if ((initialContrib === 'Cyberbot I' || initialContrib === 'SoxBot') && params.normalizeds[0] === 'tt2') {
+			//     Morebits.status.warn('Thông báo cho người đóng góp ban đầu: trang được tạo bởi bot; bỏ qua thông báo');
+			//     initialContrib = null;
 	
 			// Check for already existing tags
 			} else if (Twinkle.speedy.hasCSD && params.warnUser && !confirm('Trang đã chứa một thẻ xóa nhanh và do đó, người tạo có thể đã được thông báo việc xóa trang. Bạn có muốn thông báo cho họ về việc xóa trang này không?')) {
-				Morebits.status.info('Đang thông báo cho người đóng góp ban đầu', 'bị hủy bởi người dùng; bỏ qua thông báo.');
+				Morebits.status.info('Đang thông báo cho người đóng góp ban đầu', 'bị hủy bởi thành viên; bỏ qua thông báo.');
 			
 			// Check for banned users, thanh viên bị cấm cho nên không cần thông báo
 			} else if (params.normalizeds[0] === 'c5') {
-				Morebits.status.warn('Thông báo cho người đóng góp ban đầu: người dùng bị cấm; bỏ qua thông báo');
+				Morebits.status.warn('Thông báo cho người đóng góp ban đầu: thành viên bị cấm; bỏ qua thông báo');
 				initialContrib = null;
 			}
 	
 			if (initialContrib) {
-				var usertalkpage = new Morebits.wiki.page('User talk:' + initialContrib, 'Đang thông báo cho người đóng góp ban đầu (' + initialContrib + ')'),
+				var usertalkpage = new Morebits.wiki.page('Thảo luận thành viên:' + initialContrib, 'Đang thông báo cho người đóng góp ban đầu (' + initialContrib + ')'),
 					notifytext, i, editsummary;
 	
 				// special cases: "db" and "db-multiple"
@@ -1063,12 +1063,12 @@
 				}
 				notifytext += (params.welcomeuser ? '' : '|nowelcome=yes') + '}} ~~~~';
 	
-				editsummary = 'Thông báo: xóa nhanh' + (params.warnUser ? '' : ' đề cử xóa nhanh');
+				editsummary = 'Thông báo:' + (params.warnUser ? '' : ' Có đề nghị ') + ' [[WP:XN|xóa nhanh]] ';
 				
 				if (params.normalizeds.indexOf('c11') === -1) {  // không có tên bài viết nào trong tóm tắt cho các thẻ C11
-					editsummary += ' của [[:' + Morebits.pageNameNorm + ']].';
+					editsummary += ' [[:' + Morebits.pageNameNorm + ']].';
 				} else {
-					editsummary += ' của một trang tấn công.';
+					editsummary += ' một trang tấn công.';
 				}
 	
 				usertalkpage.setAppendText(notifytext);
@@ -1097,13 +1097,13 @@
 			main: function(params) {
 				var reason;
 				if (!params.normalizeds.length && params.normalizeds[0] === 'db') {
-					reason = prompt('Nhập tóm tắt xóa để sử dụng, tóm tắt này sẽ được nhập vào nhật trình xóa:', '');
+					reason = prompt('Nhập lý do xóa, lý do này sẽ được nhập vào nhật trình xóa nhanh:', '');
 					Twinkle.speedy.callbacks.sysop.deletePage(reason, params);
 				} else {
 					var code = Twinkle.speedy.callbacks.getTemplateCodeAndParams(params)[0];
 					Twinkle.speedy.callbacks.parseWikitext(code, function(reason) {
 						if (params.promptForSummary) {
-							reason = prompt('Nhập bản tóm tắt xóa để sử dụng hoặc nhấn OK để chấp nhận bản tóm tắt được tạo tự động.', reason);
+							reason = prompt('Nhập lý do xóa để sử dụng hoặc nhấn OK để chấp nhận bản lý do được tạo tự động.', reason);
 						}
 						Twinkle.speedy.callbacks.sysop.deletePage(reason, params);
 					});
@@ -1148,7 +1148,7 @@
 						params.normalized !== 'tt8' &&
 						document.getElementById('ca-talk').className !== 'new') {
 					var talkpage = new Morebits.wiki.page(mw.config.get('wgFormattedNamespaces')[mw.config.get('wgNamespaceNumber') + 1] + ':' + mw.config.get('wgTitle'), 'Đang xóa trang thảo luận');
-					talkpage.setEditSummary('[[WP:CSD#TT8|TT8]]: Trang thảo luận của trang đã xóa "' + Morebits.pageNameNorm + '"');
+					talkpage.setEditSummary('[[WP:C8|C8]]: Trang thảo luận của một trang đã bị xóa "' + Morebits.pageNameNorm + '"');
 					talkpage.setChangeTags(Twinkle.changeTags);
 					talkpage.deletePage();
 					// this is ugly, but because of the architecture of wiki.api, it is needed
@@ -1180,16 +1180,16 @@
 				if (mw.config.get('wgNamespaceNumber') === 6 && params.normalized !== 'tt8') {
 					$link = $('<a/>', {
 						'href': '#',
-						'text': 'nhấp vào đây để đến công cụ Gỡ liên kết (Unlink)',
+						'text': 'nhấp vào đây để sử dụng công cụ Gỡ liên kết',
 						'css': { 'fontSize': '130%', 'fontWeight': 'bold' },
 						'click': function() {
 							Morebits.wiki.actionCompleted.redirect = null;
 							Twinkle.speedy.dialog.close();
-							Twinkle.unlink.callback('Đang xóa các sử dụng tập tin và / hoặc liên kết đến tập tin đã xóa ' + Morebits.pageNameNorm);
+							Twinkle.unlink.callback('Đang gỡ liên kết đến tập tin đã xóa ' + Morebits.pageNameNorm);
 						}
 					});
 					$bigtext = $('<span/>', {
-						'text': 'Để gỡ các backlink và xóa các sử dụng tập tin',
+						'text': 'Để gỡ các backlink và xóa liên kết sử dụng tập tin',
 						'css': { 'fontSize': '130%', 'fontWeight': 'bold' }
 					});
 					Morebits.status.info($bigtext[0], $link[0]);
@@ -1240,7 +1240,7 @@
 				$snapshot.each(function(key, value) {
 					var title = $(value).attr('title');
 					var page = new Morebits.wiki.page(title, 'Đang xóa trang đổi hướng "' + title + '"');
-					page.setEditSummary('[[WP:CSD#C8|C8]]: Đổi hướng đến trang đã xóa "' + Morebits.pageNameNorm + '"');
+					page.setEditSummary('[[WP:TCXB#ĐH1|ĐH1]]: Trang đổi hướng đến trang đã bị xóa "' + Morebits.pageNameNorm + '"');
 					page.setChangeTags(Twinkle.changeTags);
 					page.deletePage(onsuccess);
 				});
@@ -1252,14 +1252,14 @@
 				var statelem = pageobj.getStatusElement();
 	
 				if (!pageobj.exists()) {
-					statelem.error("Có vẻ như trang không tồn tại; có thể đã bị xóa");
+					statelem.error("Có vẻ như trang không tồn tại hoặc có thể đã bị xóa");
 					return;
 				}
 	
 				var text = pageobj.getPageText();
 				var params = pageobj.getCallbackParameters();
 	
-				statelem.status('Kiểm tra các nhãn trên trang...');
+				statelem.status('Đang kiểm tra các thẻ trên trang...');
 	
 				// check for existing deletion tags
 				var tag = /(?:\{\{\s*(db|delete|db-.*?|speedy deletion-.*?)(?:\s*\||\s*\}\}))/.exec(text);
@@ -1268,8 +1268,8 @@
 					return;
 				}
 	
-				var xfd = /\{\{((?:article for deletion|proposed deletion|prod blp|template for discussion)\/dated|[cfm]fd\b)/i.exec(text) || /#invoke:(RfD)/.exec(text);
-				if (xfd && !confirm('Bản mẫu xóa {{' + xfd[1] + '}} đã được tìm thấy trên trang. Bạn có muốn tiếp tục thêm một bản mẫu CSD?')) {
+				var xfd = /\{\{((?:article for deletion|proposed deletion|prod blp|afd|template for discussion)\/dated|[cfm]fd\b)/i.exec(text) || /#invoke:(RfD)/.exec(text);
+				if (xfd && !confirm('Một bản mẫu xóa {{' + xfd[1] + '}} đã được tìm thấy trên trang. Bạn có muốn tiếp tục thêm một bản mẫu CSD?')) {
 					return;
 				}
 	
@@ -1320,14 +1320,14 @@
 				if (params.normalizeds.length > 1) {
 					editsummary = 'Đang yêu cầu xóa nhanh (';
 					$.each(params.normalizeds, function(index, norm) {
-						editsummary += '[[WP:CSD#' + norm.toUpperCase() + '|CSD ' + norm.toUpperCase() + ']], ';
+						editsummary += '[[WP:TCXN#' + norm.toUpperCase() + '|TCXN ' + norm.toUpperCase() + ']], ';
 					});
 					editsummary = editsummary.substr(0, editsummary.length - 2); // remove trailing comma
 					editsummary += ').';
 				} else if (params.normalizeds[0] === 'db') {
 					editsummary = 'Đang yêu cầu [[Wikipedia:Tiêu chí xóa nhanh|xóa nhanh]] với lý do "' + params.templateParams[0]['1'] + '".';
 				} else {
-					editsummary = 'Đang yêu cầu xóa nhanh ([[WP:CSD#' + params.normalizeds[0].toUpperCase() + '|CSD ' + params.normalizeds[0].toUpperCase() + ']]).';
+					editsummary = 'Đang yêu cầu xóa nhanh ([[WP:TCXN#' + params.normalizeds[0].toUpperCase() + '|TCXN ' + params.normalizeds[0].toUpperCase() + ']]).';
 				}
 	
 				// Set the correct value for |ts= parameter in {{db-g13}} -- viwiki không có tiêu chí này
@@ -1373,30 +1373,30 @@
 			addToLog: function(params, initialContrib) {
 				var usl = new Morebits.userspaceLogger(Twinkle.getPref('speedyLogPageName'));
 				usl.initialText =
-					"Đây là nhật trình của tất cả đề nghị [[Wikipedia:Tiêu chí xóa nhanh|xóa nhanh]] được thực hiện bởi người dùng này bằng cách sử dụng mô đun CSD của [[WP:TW|Twinkle]].\n\n" +
-					'Nếu bạn không muốn giữ nhật trình này nữa, bạn có thể tắt nó bằng cách sử dụng [[Wikipedia:Twinkle/Preferences|preferences panel]], và ' +
-					'đề cử trang này để xóa nhanh chóng dưới dạng [[WP:CSD#U1|CSD U1]].' +
-					(Morebits.userIsSysop ? '\n\nNhật trình này không theo dõi các thao tác xóa nhanh ngay lập tức được thực hiện bằng Twinkle.' : '');
+					"Đây là nhật trình của tất cả đề nghị [[Wikipedia:Tiêu chí xóa nhanh|xóa nhanh]] được thực hiện bởi thành viên này bằng cách sử dụng mô đun CSD của [[WP:TW|Twinkle]].\n\n" +
+					'Nếu bạn không muốn giữ nhật trình này nữa, bạn có thể tắt nó bằng cách sử dụng [[Wikipedia:Twinkle/Preferences|bảng cài đặt Twinkle]], và ' +
+					'đề cử trang này để xóa nhanh chóng dưới dạng [[WP:TV1|TCXN TV1]].' +
+					(Morebits.userIsSysop || Morebits.userIsInGroup('eliminator') ? '\n\nChú ý: Nhật trình này không theo dõi các thao tác xóa nhanh ngay lập tức được thực hiện bằng Twinkle.' : '');
 	
 				var formatParamLog = function(normalize, csdparam, input) {
-					if ((normalize === 'G4' && csdparam === 'xfd') ||
-						(normalize === 'G6' && csdparam === 'page') ||
-						(normalize === 'G6' && csdparam === 'fullvotepage') ||
-						(normalize === 'G6' && csdparam === 'sourcepage') ||
-						(normalize === 'A2' && csdparam === 'source') ||
-						(normalize === 'A10' && csdparam === 'article') ||
-						(normalize === 'F1' && csdparam === 'filename') ||
-						(normalize === 'F5' && csdparam === 'replacement')) {
+					if ((normalize === 'C4' && csdparam === 'xfd') ||
+						(normalize === 'C6' && csdparam === 'page') ||
+						(normalize === 'C6' && csdparam === 'fullvotepage') ||
+						(normalize === 'C6' && csdparam === 'sourcepage') ||
+						(normalize === 'C12' && csdparam === 'source') ||
+						(normalize === 'BV3' && csdparam === 'article') ||
+						(normalize === 'TT1' && csdparam === 'filename') ||
+						(normalize === 'TT5' && csdparam === 'replacement')) {
 						input = '[[:' + input + ']]';
 					} else if (normalize === 'G5' && csdparam === 'user') {
-						input = '[[:User:' + input + ']]';
+						input = '[[:Thành viên:' + input + ']]';
 					} else if (normalize === 'C13' && csdparam.lastIndexOf('url', 0) === 0 && input.lastIndexOf('http', 0) === 0) {
 						input = '[' + input + ' ' + input + ']';
-					} else if (normalize === 'T3' && csdparam === 'template') {
-						input = '[[:Template:' + input + ']]';
-					} else if (normalize === 'F8' && csdparam === 'filename') {
-						input = '[[commons:' + input + ']]';
-					} else if (normalize === 'P1' && csdparam === 'criterion') {
+					} else if (normalize === 'BM2' && csdparam === 'template') {
+						input = '[[:Bản mẫu:' + input + ']]';
+					} else if (normalize === 'TT8' && csdparam === 'filename') {
+						input = '[[:commons:' + input + ']]';
+					} else if (normalize === 'CTT1' && csdparam === 'criterion') {
 						input = '[[WP:CSD#' + input + ']]';
 					}
 					return ' {' + normalize + ' ' + csdparam + ': ' + input + '}';
@@ -1405,13 +1405,13 @@
 				var extraInfo = '';
 	
 				// If a logged file is deleted but exists on commons, the wikilink will be blue, so provide a link to the log
-				var fileLogLink = mw.config.get('wgNamespaceNumber') === 6 ? ' ([{{fullurl:Special:Log|page=' + mw.util.wikiUrlencode(mw.config.get('wgPageName')) + '}} log])' : '';
+				var fileLogLink = mw.config.get('wgNamespaceNumber') === 6 ? ' ([{{fullurl:Special:Log|page=' + mw.util.wikiUrlencode(mw.config.get('wgPageName')) + '}} nhật trình])' : '';
 	
-				var editsummary = 'Đang ghi nhật ký đề cử xóa nhanh';
+				var editsummary = 'Đang ghi nhật trình đề nghị xóa nhanh';
 				var appendText = '# [[:' + Morebits.pageNameNorm;
 	
 				if (params.fromDI) {
-					appendText += ']]' + fileLogLink + ': DI [[WP:CSD#' + params.normalized.toUpperCase() + '|CSD ' + params.normalized.toUpperCase() + ']] ({{tl|di-' + params.templatename + '}})';
+					appendText += ']]' + fileLogLink + ': DI [[WP:TCXN#' + params.normalized.toUpperCase() + '|TCXN ' + params.normalized.toUpperCase() + ']] ({{tl|di-' + params.templatename + '}})';
 					// The params data structure when coming from DI is quite different,
 					// so this hardcodes the only interesting items worth logging
 					['reason', 'replacement', 'source'].forEach(function(item) {
@@ -1420,26 +1420,26 @@
 							return false;
 						}
 					});
-					editsummary += ' of [[:' + Morebits.pageNameNorm + ']].';
+					editsummary += ' [[:' + Morebits.pageNameNorm + ']].';
 				} else {
 					if (params.normalizeds.indexOf('c11') === -1) {  // no article name in log for C10 taggings
 						appendText += ']]' + fileLogLink + ': ';
 						editsummary += ' [[:' + Morebits.pageNameNorm + ']].';
 					} else {
 						appendText += '|Trang]] tấn công này' + fileLogLink + ': ';
-						editsummary += ' của một trang tấn công.';
+						editsummary += ' một trang tấn công.';
 					}
 					if (params.normalizeds.length > 1) {
 						appendText += 'nhiều tiêu chí (';
 						$.each(params.normalizeds, function(index, norm) {
-							appendText += '[[WP:CSD#' + norm.toUpperCase() + '|' + norm.toUpperCase() + ']], ';
+							appendText += '[[WP:TCXN#' + norm.toUpperCase() + '|' + norm.toUpperCase() + ']], ';
 						});
 						appendText = appendText.substr(0, appendText.length - 2);  // remove trailing comma
 						appendText += ')';
 					} else if (params.normalizeds[0] === 'db') {
 						appendText += '{{tl|db-reason}}';
 					} else {
-						appendText += '[[WP:CSD#' + params.normalizeds[0].toUpperCase() + '|CSD ' + params.normalizeds[0].toUpperCase() + ']] ({{tl|db-' + params.values[0] + '}})';
+						appendText += '[[WP:TCXN#' + params.normalizeds[0].toUpperCase() + '|TCXN ' + params.normalizeds[0].toUpperCase() + ']] ({{tl|db-' + params.values[0] + '}})';
 					}
 	
 					// If params is "empty" it will still be full of empty arrays, but ask anyway
@@ -1465,7 +1465,7 @@
 				}
 	
 				if (params.requestsalt) {
-					appendText += '; requested creation protection ([[WP:SALT|salting]])';
+					appendText += '; đã yêu cầu ([[WP:SALT|khóa khả năng tạo trang]])';
 				}
 				if (extraInfo) {
 					appendText += '; thông tin bổ sung:' + extraInfo;
@@ -1505,7 +1505,7 @@
 						var u1rationale = form['csd.userreq_rationale'].value;
 						if (mw.config.get('wgNamespaceNumber') === 3 && !(/\//).test(mw.config.get('wgTitle')) &&
 								(!u1rationale || !u1rationale.trim())) {
-							alert('CSD U1:  Vui lòng đưa ra lý do khi đề cử xóa các trang thảo luận của người dùng.');
+							alert('TCXN U1: Vui lòng đưa ra lý do khi đề nghị xóa các trang thảo luận của thành viên.');
 							parameters = null;
 							return false;
 						}
@@ -1518,7 +1518,7 @@
 						var deldisc = form['csd.repost_xfd'].value;
 						if (deldisc) {
 							if (!/^(?:wp|wikipedia):/i.test(deldisc)) {
-								alert('CSD C4:  Tên trang thảo luận xóa, nếu nhập vào thì phải bắt đầu bằng tiền tố "Wikipedia:".');
+								alert('TCXN C4: Tên trang biểu quyết xóa, nếu nhập vào thì phải bắt đầu bằng tiền tố "Wikipedia:".');
 								parameters = null;
 								return false;
 							}
@@ -1538,12 +1538,12 @@
 						var movepage = form['csd.move_page'].value,
 							movereason = form['csd.move_reason'].value;
 						if (!movepage || !movepage.trim()) {
-							alert('CSD G6 (move):  Please specify the page to be moved here.');
+							alert('TCXN C6 (di chuyển): Xin vui lòng nêu rõ trang cần được di chuyển đến đây.');
 							parameters = null;
 							return false;
 						}
 						if (!movereason || !movereason.trim()) {
-							alert('CSD G6 (move):  Please specify the reason for the move.');
+							alert('TCXN C6 (di chuyển): Vui lòng nhập lý do.');
 							parameters = null;
 							return false;
 						}
@@ -1557,7 +1557,7 @@
 						var xfd = form['csd.xfd_fullvotepage'].value;
 						if (xfd) {
 							if (!/^(?:wp|wikipedia):/i.test(xfd)) {
-								alert('CSD G6 (XFD):  The deletion discussion page name, if provided, must start with "Wikipedia:".');
+								alert('TCXN C6 (BQXB): Trang biểu quyết xóa bài, bắt đầu bằng tiền tố "Wikipedia:".');
 								parameters = null;
 								return false;
 							}
@@ -1570,7 +1570,7 @@
 					if (form['csd.copypaste_sourcepage']) {
 						var copypaste = form['csd.copypaste_sourcepage'].value;
 						if (!copypaste || !copypaste.trim()) {
-							alert('CSD G6 (copypaste):  Please specify the source page name.');
+							alert('TCXN C6 (chép dán): Xin vui lòng nhập trang gốc.');
 							parameters = null;
 							return false;
 						}
@@ -1655,7 +1655,7 @@
 						var tt9url = form['csd.imgcopyvio_url'].value;
 						var tt9rationale = form['csd.imgcopyvio_rationale'].value;
 						if ((!tt9url || !tt9url.trim()) && (!tt9rationale || !tt9rationale.trim())) {
-							alert('CSD TT9: Bạn phải nhập url hoặc lý do (hoặc cả hai) khi đề cử tập tin theo tiêu chí TT9.');
+							alert('TCXN TT9: Bạn phải nhập url hoặc lý do (hoặc cả hai) khi đề cử tập tin theo tiêu chí TT9.');
 							parameters = null;
 							return false;
 						}
@@ -1672,7 +1672,7 @@
 					if (form['csd.baisaochep']) {
 						var duptitle = form['csd.baisaochep'].value;
 						if (!duptitle || !duptitle.trim()) {
-							alert('CSD BV3:  Vui lòng chỉ rõ tên bài viết trùng lặp nội dung.');
+							alert('TCXN BV3:  Vui lòng chỉ rõ tên bài viết trùng lặp nội dung.');
 							parameters = null;
 							return false;
 						}
@@ -1691,7 +1691,7 @@
 					if (form['csd.bv3_article']) {
 						var duptitle = form['csd.bv3_article'].value;
 						if (!duptitle || !duptitle.trim()) {
-							alert('CSD BV3:  Vui lòng chỉ rõ tên bài viết trùng lặp nội dung.');
+							alert('TCXN BV3:  Vui lòng chỉ rõ tên bài viết trùng lặp nội dung.');
 							parameters = null;
 							return false;
 						}
@@ -1709,7 +1709,7 @@
 					if (form['csd.duplicatetemplate_2']) {
 						var t3template = form['csd.duplicatetemplate_2'].value;
 						if (!t3template || !t3template.trim()) {
-							alert('CSD T3:  Please specify the name of a template duplicated by this one.');
+							alert('TCXN T3:  Please specify the name of a template duplicated by this one.');
 							parameters = null;
 							return false;
 						}
@@ -1722,7 +1722,7 @@
 					if (form['csd.p1_criterion']) {
 						var criterion = form['csd.p1_criterion'].value;
 						if (!criterion || !criterion.trim()) {
-							alert('CSD P1:  Vui lòng chỉ định một tiêu chí riêng lẻ.');
+							alert('TCXN CTT1:  Vui lòng chỉ định một tiêu chí riêng lẻ.');
 							parameters = null;
 							return false;
 						}
@@ -1963,9 +1963,9 @@
 		Morebits.status.init(form);
 	
 		Morebits.wiki.actionCompleted.redirect = mw.config.get('wgPageName');
-		Morebits.wiki.actionCompleted.notice = 'Gán nhãn hoàn tất';
+		Morebits.wiki.actionCompleted.notice = 'Gắn thẻ hoàn tất';
 	
-		var wikipedia_page = new Morebits.wiki.page(mw.config.get('wgPageName'), 'Đang gán nhãn trang');
+		var wikipedia_page = new Morebits.wiki.page(mw.config.get('wgPageName'), 'Đang gắn thẻ trang');
 		wikipedia_page.setChangeTags(Twinkle.changeTags); // Here to apply to triage
 		wikipedia_page.setCallbackParameters(params);
 		wikipedia_page.load(Twinkle.speedy.callbacks.user.main);

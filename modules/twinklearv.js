@@ -5,12 +5,12 @@
 
 
 	/*
-	 ****************************************
-	 *** twinklearv.js: ARV module
-	 ****************************************
-	 * Mode of invocation:     Tab ("ARV") // Advance Reporting and Vetting
-	 * Active on:              Any page with relevant user name (userspace, contribs, etc.)
-	 */
+		****************************************
+		*** twinklearv.js: ARV module
+		****************************************
+		* Mode of invocation:     Tab ("ARV") // Advance Reporting and Vetting
+		* Active on:              Any page with relevant user name (userspace, contribs, etc.)
+		*/
 	
 	Twinkle.arv = function twinklearv() {
 		var username = mw.config.get('wgRelevantUserName');
@@ -18,7 +18,7 @@
 			return;
 		}
 	
-		var title = mw.util.isIPAddress(username) ? 'Báo cáo IP đến bảo quản viên' : 'Báo cáo người dùng đến bảo quản viên';
+		var title = mw.util.isIPAddress(username) ? 'Báo cáo IP đến bảo quản viên' : 'Báo cáo thành viên đến bảo quản viên';
 	
 		Twinkle.addPortletLink(function() {
 			Twinkle.arv.callback(username);
@@ -29,9 +29,9 @@
 		var Window = new Morebits.simpleWindow(600, 500);
 		Window.setTitle('Báo cáo phá hoại'); // Backronym
 		Window.setScriptName('Twinkle');
-		Window.addFooterLink('Hướng dẫn AIV', 'WP:GAIV');
-		Window.addFooterLink('Chỉ dẫn UAA', 'WP:UAAI');
-		Window.addFooterLink('Về SPI', 'WP:SPI');
+		// Window.addFooterLink('Hướng dẫn AIV', 'WP:GAIV');
+		// Window.addFooterLink('Chỉ dẫn UAA', 'WP:UAAI');
+		Window.addFooterLink('Về YCKDTK', 'WP:YCKDTK');
 		Window.addFooterLink('Trợ giúp Twinkle', 'WP:TW/DOC#arv');
 	
 		var form = new Morebits.quickForm(Twinkle.arv.callback.evaluate);
@@ -43,28 +43,28 @@
 		});
 		categories.append({
 			type: 'option',
-			label: 'Phá hoại (WP:AIV)',
+			label: 'Phá hoại',
 			value: 'aiv'
 		});
 		categories.append({
 			type: 'option',
-			label: 'Tên thành viên (WP:UAA)',
+			label: 'Tên thành viên',
 			value: 'username',
 			disabled: mw.util.isIPAddress(uid)
 		});
 		categories.append({
 			type: 'option',
-			label: 'Người chủ rối (WP:SPI)',
+			label: 'Người chủ rối (WP:YCKDTK)',
 			value: 'sock'
 		});
 		categories.append({
 			type: 'option',
-			label: 'Con rối (WP:SPI)',
+			label: 'Con rối (WP:YCKDTK)',
 			value: 'puppet'
 		});
 		categories.append({
 			type: 'option',
-			label: 'Bút chiến (WP:AN3)',
+			label: 'Bút chiến',
 			value: 'an3'
 		});
 		form.append({
@@ -101,7 +101,7 @@
 			default:
 				work_area = new Morebits.quickForm.element({
 					type: 'field',
-					label: 'Báo cáo người dùng phá hoại',
+					label: 'Báo cáo thành viên phá hoại',
 					name: 'work_area'
 				});
 				work_area.append({
@@ -125,7 +125,7 @@
 					type: 'input',
 					name: 'badid',
 					label: 'ID sửa đổi cho trang đích khi bị phá hoại: ',
-					tooltip: 'Để trống nếu không có liên kết khác biệt',
+					tooltip: 'Để trống nếu không có liên kết đến khác biệt',
 					value: mw.util.getParamValue('vanarticlerevid') || '',
 					disabled: !mw.util.getParamValue('vanarticle'),
 					event: function(e) {
@@ -240,7 +240,7 @@
 						type: 'input',
 						name: 'sockmaster',
 						label: 'Chủ rối',
-						tooltip: 'Tên người dùng của chủ rối (sockmaster) mà không có tiền tố User:'
+						tooltip: 'Tên người dùng của chủ rối (sockmaster), không có tiền tố User:'
 					}
 				);
 				work_area.append({
@@ -286,18 +286,18 @@
 					type: 'textarea',
 					label: 'Bằng chứng:',
 					name: 'evidence',
-					tooltip: 'Bằng chứng của bạn phải làm rõ rằng mỗi người dùng này có thể đang lạm dụng nhiều tài khoản. Thông thường, điều này có nghĩa là khác biệt, lịch sử trang hoặc thông tin khác giải thích lý do tại sao người dùng a) giống nhau và b) gây rối. Đây chỉ là bằng chứng và thông tin cần thiết để đánh giá vấn đề. Tránh tất cả các cuộc thảo luận khác không phải là bằng chứng của con rối.'
+					tooltip: 'Bằng chứng của bạn phải chỉ rõ rằng thành viên này có thể đang lạm dụng nhiều tài khoản. Bằng chứng có thể là liên kết đến khác biệt giữa các sửa đổi, lịch sử trang hoặc thông tin khác giải thích lý do tại sao người dùng a) giống nhau và b) gây rối. Đây chỉ là bằng chứng và thông tin cần thiết để đánh giá một vấn đề. Cần tránh tất cả các cuộc thảo luận khác không phải là bằng chứng của việc lạm dụng rối.'
 				});
 				work_area.append({
 					type: 'checkbox',
 					list: [ {
-						label: 'Yêu cầu Kiểm định Tài khoản (CheckUser)',
+						label: 'Yêu cầu kiểm định tài khoản (CheckUser)',
 						name: 'checkuser',
-						tooltip: 'Kiểm định Tài khoản là một công cụ được sử dụng để thu thập bằng chứng kỹ thuật liên quan đến cáo buộc con rối. Nó sẽ không được sử dụng mà không có lý do chính đáng, mà bạn phải chứng minh rõ ràng. Đảm bảo bằng chứng của bạn giải thích lý do tại sao sử dụng công cụ này là phù hợp. Nó sẽ không được sử dụng để kết nối công khai tài khoản người dùng và địa chỉ IP.'
+						tooltip: 'Kiểm định Tài khoản là một công cụ được sử dụng để thu thập bằng chứng kỹ thuật liên quan đến cáo buộc lạm dụng rối. Công cụ sẽ không được sử dụng mà không có lý do chính đáng, vì vậy bạn phải chứng minh rõ ràng. Đảm bảo bằng chứng của bạn giải thích lý do tại sao sử dụng công cụ này là phù hợp. Công cụ sẽ không được sử dụng để công khai mối quan hệ tài khoản thành viên và địa chỉ IP.'
 					}, {
 						label: 'Thông báo cho người dùng bị báo cáo vi phạm',
 						name: 'notify',
-						tooltip: 'Thông báo là không bắt buộc. Trong nhiều trường hợp, đặc biệt là đối với những người mắc bệnh con rối mãn tính, thông báo có thể phản tác dụng. Tuy nhiên, đặc biệt là trong các trường hợp ít nghiêm trọng liên quan đến những người dùng chưa được báo cáo trước đó, thông báo có thể làm cho các trường hợp trở nên công bằng hơn và cũng có vẻ công bằng hơn trong mắt bị cáo. Hãy sử dụng phán đoán của bạn để đưa ra quyết định.'
+						tooltip: 'Thông báo là không bắt buộc. Trong nhiều trường hợp, đặc biệt là đối với rối phá hoại dai dẳng thông báo có thể phản tác dụng. Tuy nhiên, trong các trường hợp ít nghiêm trọng liên quan đến những thành viên chưa được báo cáo trước đó, thông báo có thể làm cho các trường hợp trở nên công bằng hơn và cũng có vẻ công bằng hơn trong mắt thành viên. Hãy sử dụng phán đoán của bạn để đưa ra quyết định.'
 					} ]
 				});
 				work_area = work_area.render();
@@ -382,7 +382,7 @@
 	
 									var $free_label = $('<label/>', {
 										'for': 's_resolves_free',
-										'html': 'Liên kết URL của sự khác biệt với các cuộc thảo luận bổ sung: '
+										'html': 'Liên kết URL đến khác biệt sửa đổi với các cuộc thảo luận bổ sung: '
 									});
 									$free_entry.append($free_label).append($free_input).appendTo($field);
 								}
@@ -393,7 +393,7 @@
 	
 						// warnings
 						var uid = root.uid.value;
-						getAN3Entries('warnings', mw.config.get('wgUserName'), 'User talk:' + uid);
+						getAN3Entries('warnings', mw.config.get('wgUserName'), 'Thảo luận Thành viên:' + uid);
 	
 						// diffs and resolves require a valid page
 						var page = root.page.value;
@@ -414,19 +414,19 @@
 				work_area.append({
 					type: 'field',
 					name: 'diffs',
-					label: 'Các hồi sửa người dùng',
-					tooltip: 'Chọn các chỉnh sửa mà bạn tin là được hồi sửa'
+					label: 'Các lần lùi sửa của thành viên (trong vòng 48 giờ)',
+					tooltip: 'Chọn các sửa đổi mà bạn cho rằng đây là hành vi bút chiến'
 				});
 				work_area.append({
 					type: 'field',
 					name: 'warnings',
-					label: 'Các cảnh báo cho chủ đề',
-					tooltip: 'Bạn phải cảnh báo đối tượng trước khi báo cáo'
+					label: 'Cảnh báo',
+					tooltip: 'Bạn phải cảnh báo thành viên trước khi báo cáo'
 				});
 				work_area.append({
 					type: 'field',
 					name: 'resolves',
-					label: 'Đề nghị phân giải',
+					label: 'Đề nghị giải quyết',
 					tooltip: 'Bạn nên cố gắng giải quyết vấn đề trên trang thảo luận trước'
 				});
 	
@@ -511,7 +511,7 @@
 				Morebits.wiki.actionCompleted.redirect = 'Wikipedia:Tin nhắn cho bảo quản viên';
 				Morebits.wiki.actionCompleted.notice = 'Báo cáo thành công';
 	
-				var aivPage = new Morebits.wiki.page('Wikipedia:Tin nhắn cho bảo quản viên', 'Tiến hành yêu cầu AIV');
+				var aivPage = new Morebits.wiki.page('Wikipedia:Tin nhắn cho bảo quản viên', 'Tiến hành báo cáo');
 				// aivPage.setPageSection(1); -- 1 = lấy phần đầu tiên của trang, tạm che
 				aivPage.setFollowRedirect(true);
 	
@@ -522,7 +522,7 @@
 					// check if user has already been reported
 					if (new RegExp('\\{\\{\\s*(?:(?:[Ii][Pp])?[Vv]andal|[Uu]serlinks)\\s*\\|\\s*(?:1=)?\\s*' + Morebits.string.escapeRegExp(uid) + '\\s*\\}\\}').test(text)) {
 						aivPage.getStatusElement().error('Báo cáo đã có, sẽ không thêm báo cáo mới');
-						Morebits.status.printUserText(reason, 'Nhận xét bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công trong báo cáo hiện có cho người dùng này tại ' + $aivLink + ':');
+						Morebits.status.printUserText(reason, 'Bình luận bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công trong báo cáo hiện có cho người dùng này tại ' + $aivLink + ':');
 						return;
 					}
 	
@@ -533,11 +533,11 @@
 						var tb2statelem = tb2Page.getStatusElement();
 	
 						if (new RegExp('\\{\\{\\s*(?:(?:[Ii][Pp])?[Vv]andal|[Uu]serlinks)\\s*\\|\\s*(?:1=)?\\s*' + Morebits.string.escapeRegExp(uid) + '\\s*\\}\\}').test(tb2Text)) {
-							if (confirm('Người dùng ' + uid + ' đã được báo cáo bởi một bot. Bạn có muốn thực hiện báo cáo này không?')) {
-								tb2statelem.info('Đã tiếp tục mặc dù có báo cáo bot');
+							if (confirm('Thành viên ' + uid + ' đã được báo cáo bởi một bot. Bạn có muốn thực hiện báo cáo này không?')) {
+								tb2statelem.info('Đã tiếp tục mặc dù có báo cáo từ bot');
 							} else {
-								tb2statelem.error('Báo cáo từ bot đang có mặt, đang dừng bot');
-								Morebits.status.printUserText(reason, 'Nhận xét bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công tại ' + $aivLink + ':');
+								tb2statelem.error('Đã có bot báo cáo, tác vụ bị hủy bỏ.');
+								Morebits.status.printUserText(reason, 'Bình luận bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công tại ' + $aivLink + ':');
 								return;
 							}
 						} else {
@@ -573,7 +573,7 @@
 				}
 				reason = '*{{user-uaa|1=' + uid + '}} &ndash; ';
 				if (types.length || hasShared) {
-					reason += 'Vi phạm chính sách tên người dùng như ' + article + ' ' + ' người dùng có tên mang tính ' + types + 
+					reason += 'Vi phạm quy định về tên người dùng ' + article + ' ' + ' người dùng có tên mang tính ' + types + 
 						(hasShared ? ' có nghĩa là sử dụng chung. ' : '. ');
 				}
 				if (comment !== '') {
@@ -588,7 +588,7 @@
 				Morebits.wiki.actionCompleted.redirect = 'Wikipedia:Tin nhắn cho bảo quản viên';
 				Morebits.wiki.actionCompleted.notice = 'Báo cáo thành công';
 	
-				var uaaPage = new Morebits.wiki.page('Wikipedia:Tin nhắn cho bảo quản viên', 'Tiến hành yêu cầu UAA');
+				var uaaPage = new Morebits.wiki.page('Wikipedia:Tin nhắn cho bảo quản viên', 'Tiến hành yêu cầu');
 				uaaPage.setFollowRedirect(true);
 	
 				uaaPage.load(function() {
@@ -596,9 +596,9 @@
 	
 					// check if user has already been reported
 					if (new RegExp('\\{\\{\\s*user-uaa\\s*\\|\\s*(1\\s*=\\s*)?' + Morebits.string.escapeRegExp(uid) + '\\s*(\\||\\})').test(text)) {
-						uaaPage.getStatusElement().error('Người dùng đã được liệt kê.');
+						uaaPage.getStatusElement().error('Thành viên đã được báo cáo.');
 						var $uaaLink = '<a target="_blank" href="/wiki/WP:UAA">WP:UAA</a>';
-						Morebits.status.printUserText(reason, 'Nhận xét bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công trong báo cáo hiện có cho người dùng này tại ' + $uaaLink + ':');
+						Morebits.status.printUserText(reason, 'Bình luận bạn đã nhập được cung cấp bên dưới, trong trường hợp bạn muốn đăng chúng theo cách thủ công trong báo cáo hiện có cho người dùng này tại ' + $uaaLink + ':');
 						return;
 					}
 					uaaPage.getStatusElement().status('Thêm báo cáo mới...');
@@ -621,10 +621,10 @@
 	
 				var puppetReport = form.category.value === 'puppet';
 				if (puppetReport && !form.sockmaster.value.trim()) {
-					alert('Bạn chưa nhập tài khoản chủ rối cho con rối này. Thay vào đó, hãy xem xét báo cáo tài khoản này như một chủ rối.');
+					alert('Bạn chưa nhập tài khoản chủ rối cho con rối này. Bạn cũng có thể xem xét báo cáo tài khoản này như một chủ rối.');
 					return;
 				} else if (!puppetReport && !form.sockpuppet[0].value.trim()) {
-					alert('Bạn chưa nhập bất kỳ (các) tài khoản con rối nào cho chủ rối này. Thay vào đó, hãy xem xét báo cáo tài khoản này dưới dạng đoạn mã con rối.');
+					alert('Bạn chưa nhập bất kỳ (các) tài khoản con rối nào cho chủ rối này. Bạn cũng có thể xem xét báo cáo tài khoản này dưới dạng tài khoản con rối.');
 					return;
 				}
 	
@@ -643,7 +643,7 @@
 					return $(o).data('revinfo');
 				});
 	
-				if (diffs.length < 3 && !confirm('Bạn đã chọn ít hơn ba chỉnh sửa vi phạm. Bạn có muốn thực hiện báo cáo này không?')) {
+				if (diffs.length < 3 && !confirm('Bạn đã chọn ít hơn ba sửa đổi vi phạm. Bạn có muốn thực hiện báo cáo này không?')) {
 					return;
 				}
 	
@@ -651,7 +651,7 @@
 					return $(o).data('revinfo');
 				});
 	
-				if (!warnings.length && !confirm('Bạn chưa chọn bất kỳ chỉnh sửa nào mà bạn đã cảnh báo người vi phạm. Bạn có muốn thực hiện báo cáo này không?')) {
+				if (!warnings.length && !confirm('Bạn chưa chọn bất kỳ sửa đổi nào mà bạn đã cảnh báo người vi phạm. Bạn có muốn thực hiện báo cáo này không?')) {
 					return;
 				}
 	
@@ -661,7 +661,7 @@
 				var free_resolves = $('input[name=s_resolves_free]').val();
 	
 				var an3_next = function(free_resolves) {
-					if (!resolves.length && !free_resolves && !confirm('Bạn chưa chọn bất kỳ chỉnh sửa nào mà bạn đã cố gắng giải quyết vấn đề. Bạn có muốn thực hiện báo cáo này không?')) {
+					if (!resolves.length && !free_resolves && !confirm('Bạn chưa chọn bất kỳ sửa đổi nào mà bạn đã cố gắng giải quyết vấn đề. Bạn có muốn thực hiện báo cáo này không?')) {
 						return;
 					}
 	
@@ -775,14 +775,14 @@
 	Twinkle.arv.processSock = function(params) {
 		Morebits.wiki.addCheckpoint(); // prevent notification events from causing an erronous "action completed"
 	
-		// notify all user accounts if requested
+		// Thông báo cho tất cả tài khoản bị nghi ngờ là rối
 		if (params.notify && params.sockpuppets.length > 0) {
 	
 			var notifyEditSummary = 'Thông báo về việc nghi ngờ là rối.';
 			var notifyText = '\n\n{{subst:socksuspectnotice|1=' + params.uid + '}} ~~~~';
 	
 			// notify user's master account
-			var masterTalkPage = new Morebits.wiki.page('User talk:' + params.uid, 'Notifying suspected sockpuppeteer');
+			var masterTalkPage = new Morebits.wiki.page('Thảo luận Thành viên:' + params.uid, 'Thông báo: Có nghi ngờ rằng bạn đang lạm dụng nhiều tài khoản');
 			masterTalkPage.setFollowRedirect(true);
 			masterTalkPage.setEditSummary(notifyEditSummary);
 			masterTalkPage.setChangeTags(Twinkle.changeTags);
@@ -805,9 +805,9 @@
 	
 			var socks = params.sockpuppets;
 	
-			// notify each puppet account
+			// Thông báo cho từng tài khoản
 			for (var i = 0; i < socks.length; ++i) {
-				var sockTalkPage = new Morebits.wiki.page('User talk:' + socks[i], 'Thông báo cho ' + socks[i]);
+				var sockTalkPage = new Morebits.wiki.page('Thảo luận Thành viên:' + socks[i], 'Thông báo cho ' + socks[i]);
 				sockTalkPage.setFollowRedirect(true);
 				sockTalkPage.setEditSummary(notifyEditSummary);
 				sockTalkPage.setChangeTags(Twinkle.changeTags);
@@ -817,7 +817,7 @@
 		}
 	
 		// prepare the SPI report
-		var text = '\n\n{{subst:SPI report|socksraw=' +
+		var text = '\n\n{{subst:Mẫu YCKDTK|socksraw=' +
 			params.sockpuppets.map(function(v) {
 				return '* {{' + (mw.util.isIPAddress(v) ? 'checkip' : 'checkuser') + '|1=' + v + '}}';
 			}).join('\n') + '\n|evidence=' + params.evidence + ' \n';
@@ -834,7 +834,7 @@
 	
 		var spiPage = new Morebits.wiki.page(reportpage, 'Đang lấy trang thảo luận');
 		spiPage.setFollowRedirect(true);
-		spiPage.setEditSummary('Thêm báo cáo mới cho [[Special:Contributions/' + params.uid + '|' + params.uid + ']].');
+		spiPage.setEditSummary('Thêm báo cáo mới cho [[Đặc biệt:Đóng góp/' + params.uid + '|' + params.uid + ']].');
 		spiPage.setChangeTags(Twinkle.changeTags);
 		spiPage.setAppendText(text);
 		switch (Twinkle.getPref('spiWatchReport')) {
@@ -923,7 +923,7 @@
 				if (sub.length >= 2) {
 					var last = sub[0];
 					var first = sub.slice(-1)[0];
-					var label = 'Các chỉnh sửa liên tiếp được thực hiện từ ' + new Morebits.date(first.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) to ' + new Morebits.date(last.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC)';
+					var label = 'Các sửa đổi liên tiếp được thực hiện từ ' + new Morebits.date(first.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) to ' + new Morebits.date(last.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC)';
 					ret = '# {{diff|oldid=' + first.parentid + '|diff=' + last.revid + '|label=' + label + '}}\n';
 				}
 				ret += sub.reverse().map(function(v) {
@@ -941,7 +941,7 @@
 			if (params.free_resolves) {
 				var page = params.free_resolves;
 				if (page.compare) {
-					resolvetext += '\n# ' + ' {{diff|oldid=' + page.compare.fromrevid + '|diff=' + page.compare.torevid + '|label=Các chỉnh sửa liên tiếp vào lúc ' + page.compare.totitle + '}}';
+					resolvetext += '\n# ' + ' {{diff|oldid=' + page.compare.fromrevid + '|diff=' + page.compare.torevid + '|label=Các sửa đổi liên tiếp vào lúc ' + page.compare.totitle + '}}';
 				} else if (page.revisions) {
 					var revCount = page.revisions.length;
 					var rev;
@@ -951,7 +951,7 @@
 					} else { // diff and oldid are nonconsecutive
 						rev = page.revisions[0];
 						var revLatest = page.revisions[revCount - 1];
-						var label = 'Các chỉnh sửa liên tiếp được thực hiện từ ' + new Morebits.date(rev.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) to ' + new Morebits.date(revLatest.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) on ' + page.title;
+						var label = 'Các sửa đổi liên tiếp được thực hiện từ ' + new Morebits.date(rev.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) to ' + new Morebits.date(revLatest.timestamp).format('HH:mm, D MMMM YYYY', 'utc') + ' (UTC) on ' + page.title;
 						resolvetext += '\n# {{diff|oldid=' + rev.revid + '|diff=' + revLatest.revid + '|label=' + label + '}}\n';
 					}
 				}
@@ -965,10 +965,10 @@
 	
 			var text = '\n\n' + '{{subst:AN3 report|diffs=' + difftext + '|warnings=' + warningtext + '|resolves=' + resolvetext + '|pagename=' + params.page + '|orig=' + origtext + '|comment=' + comment + '|uid=' + params.uid + '}}';
 	
-			var reportpage = 'Wikipedia:Tin nhắn cho bảo quản viên/Bút chiến';
+			var reportpage = 'Wikipedia:Tin nhắn cho bảo quản viên';
 	
 			Morebits.wiki.actionCompleted.redirect = reportpage;
-			Morebits.wiki.actionCompleted.notice = 'Reporting complete';
+			Morebits.wiki.actionCompleted.notice = 'Báo cáo thành công';
 	
 			var an3Page = new Morebits.wiki.page(reportpage, 'Truy xuất trang thảo luận');
 			an3Page.setFollowRedirect(true);
@@ -983,7 +983,7 @@
 	
 			var talkPage = new Morebits.wiki.page('User talk:' + params.uid, 'Thông báo cho người tham gia bút chiến');
 			talkPage.setFollowRedirect(true);
-			talkPage.setEditSummary('Thông báo về việc thảo luận bút chiến ở bảng thông báo.');
+			talkPage.setEditSummary('Thông báo về việc thảo luận về vấn đề bút chiến tại Tin nhắn cho bảo quản viên.');
 			talkPage.setChangeTags(Twinkle.changeTags);
 			talkPage.setAppendText(notifyText);
 			talkPage.append();

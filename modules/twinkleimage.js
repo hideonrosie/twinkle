@@ -49,43 +49,43 @@
 			event: Twinkle.image.callback.choice,
 			list: [
 				{
-					label: 'Thiếu nguồn gốc (XN H4)',
+					label: 'Thiếu nguồn gốc (TCXN TT4)',
 					value: 'thiếu nguồn gốc',
 					checked: true,
 					tooltip: 'Hình ảnh hoặc tập tin thiếu thông tin nguồn gốc'
 				},
 				{
-					label: 'Thiếu giấy phép (XN H4)',
+					label: 'Thiếu giấy phép (TCXN TT4)',
 					value: 'thiếu giấy phép',
 					tooltip: 'Hình ảnh hoặc tập tin thiếu thông tin về giấy phép'
 				},
 				{
-					label: 'Thiếu nguồn gốc lẫn giấy phép (XN H4)',
+					label: 'Thiếu nguồn gốc lẫn giấy phép (TCXN TT4)',
 					value: 'thiếu nguồn gốc lẫn giấy phép',
 					tooltip: 'Hình ảnh hoặc tập tin thiếu thông tin về nguồn gốc lẫn giấy phép'
 				},
 				{
-					label: 'Sử dụng hợp lý không sử dụng (XN H5)',
+					label: 'Sử dụng hợp lý không sử dụng (TCXN TT5)',
 					value: 'SDHL không SD',
 					tooltip: 'Hình ảnh hoặc tập tin không được cấp phép để dùng trên Wikipedia và chỉ cho phép dùng theo tuyên bố sử dụng hợp lý như quy định Wikipedia:Nội dung không tự do, nhưng không dùng trong bài viết nào cả'
 				},
 				{
-					label: 'Thiếu cơ sở hợp lý (XN H6)',
+					label: 'Thiếu cơ sở hợp lý (TCXN TT6)',
 					value: 'thiếu sử dụng hợp lý',
 					tooltip: 'Hình ảnh hoặc tập tin được tuyên bố là dùng theo quy định sử dụng hợp lý của Wikipedia nhưng không có lời giải thích tại sao lại được cho phép dùng theo quy định đó'
 				},
 				{
-					label: 'Cơ sở hợp lý gây tranh cãi (XN H7)',
+					label: 'Cơ sở hợp lý gây tranh cãi (TCXN TT7)',
 					value: 'lý do SDHL vô lý',
 					tooltip: 'Hình ảnh hoặc tập tin có cơ sở hợp lý gây tranh cãi'
 				},
 				{
-					label: 'Sử dụng hợp lý thay thế được (XN H7)',
+					label: 'Sử dụng hợp lý thay thế được (TCXN TT7)',
 					value: 'SDHL thay thế được',
 					tooltip: 'Hình ảnh hoặc tập tin không thỏa mãn tiêu chí không tự do đầu tiên của Wikipedia tức là nó miêu tả sự vật mà rất có khả năng tìm được hoặc tạo được một hình tự do mà có lượng thông tin tương đương'
 				},
 				{
-					label: 'Thiếu sự cho phép (XN H11)',
+					label: 'Thiếu sự cho phép (TCXN TT11)',
 					value: 'thiếu bằng chứng',
 					tooltip: 'Hình ảnh hoặc tập tin không có bằng chứng là tác giả đồng ý cấp phép cho tập tin'
 				}
@@ -190,20 +190,20 @@
 			case 'thiếu nguồn gốc lẫn giấy phép':
 			case 'thiếu nguồn gốc':
 			case 'thiếu giấy phép':
-				csdcrit = 'H4';
+				csdcrit = 'T4';
 				break;
 			case 'SDHL không SD':
-				csdcrit = 'H5';
+				csdcrit = 'T5';
 				break;
 			case 'thiếu sử dụng hợp lý':
-				csdcrit = 'H6';
+				csdcrit = 'T6';
 				break;
 			case 'lý do SDHL vô lý':
 			case 'SDHL thay thế được':
-				csdcrit = 'H7';
+				csdcrit = 'TT7';
 				break;
 			case 'thiếu bằng chứng':
-				csdcrit = 'H11';
+				csdcrit = 'TT11';
 				break;
 			default:
 				throw new Error('Twinkle.image.callback.evaluate: tiêu chí không rõ');
@@ -277,7 +277,7 @@
 			tag += '|help=off}}\n';
 	
 			pageobj.setPageText(tag + text);
-			pageobj.setEditSummary('Tập tin được đề nghị xóa theo [[WP:XN#' + params.normalized + '|XN ' + params.normalized + ']] (' + params.type + ').');
+			pageobj.setEditSummary('Tập tin được đề nghị xóa theo [[WP:TCXN#' + params.normalized + '|TCXN ' + params.normalized + ']] (' + params.type + ').');
 			pageobj.setChangeTags(Twinkle.changeTags);
 			switch (Twinkle.getPref('deliWatchPage')) {
 				case 'yes':
@@ -308,7 +308,7 @@
 				}
 				notifytext += '}} ~~~~';
 				usertalkpage.setAppendText(notifytext);
-				usertalkpage.setEditSummary('Thông báo: có đề nghị xóa [[:' + Morebits.pageNameNorm + ']].');
+				usertalkpage.setEditSummary('Thông báo: Có đề nghị xóa [[:' + Morebits.pageNameNorm + ']].');
 				usertalkpage.setChangeTags(Twinkle.changeTags);
 				usertalkpage.setCreateOption('recreate');
 				switch (Twinkle.getPref('deliWatchUser')) {

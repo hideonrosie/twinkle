@@ -1,1448 +1,1852 @@
-//<nowiki>
+// <nowiki>
 
 
-(function($){
+(function($) {
 
 
-/*
- ****************************************
- *** twinklewarn.js: Warn module
- ****************************************
- * Mode of invocation:     Tab ("Warn")
- * Active on:              User talk pages
- * Config directives in:   TwinkleConfig
- */
-
-Twinkle.warn = function twinklewarn() {
-	if( mw.config.get( 'wgRelevantUserName' ) ) {
-			Twinkle.addPortletLink( Twinkle.warn.callback, "Cảnh báo", "tw-warn", "Cảnh báo/thông báo thành viên" );
-	}
-
-	// Modify URL of talk page on rollback success pages. This is only used
-	// when a user Ctrl+clicks on a rollback link.
-	if( mw.config.get('wgAction') === 'rollback' ) {
-		var $vandalTalkLink = $("#mw-rollback-success").find(".mw-usertoollinks a").first();
-		if ( $vandalTalkLink.length ) {
-			Twinkle.warn.makeVandalTalkLink($vandalTalkLink);
-			$vandalTalkLink.css("font-weight", "bold");
-		}
-	}
-
-	// Override the mw.notify function to allow us to inject a link into the
-	// rollback success popup. Only users with the 'rollback' right need this,
-	// but we have no nice way of knowing who has that right (what with global
-	// groups and the like)
-	else if( mw.config.get('wgAction') === 'history' ) {
-		mw.notifyOriginal = mw.notify;
-		mw.notify = function mwNotifyTwinkleOverride(message, options) {
-			// This is a horrible, awful hack to add a link to the rollback success
-			// popup. All other notification popups should be left untouched.
-			// It won't work for people whose user language is not English.
-			// As it's a hack, it's liable to stop working or break sometimes,
-			// particularly if the text or format of the confirmation message
-			// (MediaWiki:Rollback-success-notify) changes.
-			var regexMatch;
-			if ( options && options.title && mw.msg && options.title === mw.msg('actioncomplete') &&
-				message && $.isArray(message) && message[0] instanceof HTMLParagraphElement &&
-				(regexMatch = /^Reverted edits by (.+);\s+changed/.exec(message[0].innerText))
-			) {
-				// Create a nicely-styled paragraph to place the link in
-				var $p = $('<p/>');
-				$p.css("margin", "0.5em -1.5em -1.5em");
-				$p.css("padding", "0.5em 1.5em 0.8em");
-				$p.css("border-top", "1px #666 solid");
-				$p.css("cursor", "default");
-				$p.click(function(e) { e.stopPropagation(); });
-
-				// Create the new talk link and append it to the end of the message
-				var $vandalTalkLink = $('<a/>');
-				$vandalTalkLink.text("Warn user with Twinkle");
-				//$vandalTalkLink.css("display", "block");
-				$vandalTalkLink.attr("href", mw.util.getUrl("User talk:" + regexMatch[1]));
-				Twinkle.warn.makeVandalTalkLink($vandalTalkLink);
-
-				$p.append($vandalTalkLink);
-				message[0].appendChild($p.get()[0]);
-
-				// Don't auto-hide the notification. It only stays around for 5 seconds by
-				// default, which might not be enough time for the user to read it and
-				// click the link
-				options.autoHide = false;
+	/*
+	 ****************************************
+	 *** twinklewarn.js: Warn module
+	 ****************************************
+	 * Mode of invocation:     Tab ("Cảnh báo")
+	 * Active on:              Any page with relevant user name (userspace, contribs,
+	 *                         etc.), as well as the rollback success page
+	 */
+	
+	Twinkle.warn = function twinklewarn() {
+	
+		if (mw.config.get('wgRelevantUserName')) {
+			Twinkle.addPortletLink(Twinkle.warn.callback, 'Cảnh báo', 'tw-warn', 'Cảnh báo/thông báo thành viên');
+			if (Twinkle.getPref('autoMenuAfterRollback') &&
+				mw.config.get('wgNamespaceNumber') === 3 &&
+				mw.util.getParamValue('vanarticle') &&
+				!mw.util.getParamValue('friendlywelcome') &&
+				!mw.util.getParamValue('noautowarn')) {
+				Twinkle.warn.callback();
 			}
-			mw.notifyOriginal.apply(mw, arguments);
-		};
-	}
-
-	// for testing, use:
-	// mw.notify([ $("<p>Reverted edits by foo; changed</p>")[0] ], { title: mw.msg('actioncomplete') } );
-};
-
-Twinkle.warn.makeVandalTalkLink = function($vandalTalkLink) {
-	$vandalTalkLink.wrapInner($("<span/>").attr("title", "If appropriate, you can use Twinkle to warn the user about their edits to this page."));
-
-	var extraParam = "vanarticle=" + mw.util.rawurlencode(Morebits.pageNameNorm);
-	var href = $vandalTalkLink.attr("href");
-	if (href.indexOf("?") === -1) {
-		$vandalTalkLink.attr("href", href + "?" + extraParam);
-	} else {
-		$vandalTalkLink.attr("href", href + "&" + extraParam);
-	}
-};
-
-Twinkle.warn.callback = function twinklewarnCallback() {
-	if( mw.config.get( 'wgRelevantUserName' ) === mw.config.get( 'wgUserName' ) &&
-			!confirm( 'You are about to warn yourself! Are you sure you want to proceed?' ) ) {
-		return;
-	}
-
-	var Window = new Morebits.simpleWindow( 600, 440 );
-	Window.setTitle( "Thông báo/cảnh báo đến thành viên" );
-	Window.setScriptName( "Twinkle" );
-	Window.addFooterLink( "Chọn mức độ cảnh báo", "WP:UWUL#Levels" );
-	Window.addFooterLink( "Trợ giúp Twinkle", "WP:TW/DOC#warn" );
-
-	var form = new Morebits.quickForm( Twinkle.warn.callback.evaluate );
-	var main_select = form.append( {
+		}
+	
+		// Modify URL of talk page on rollback success pages, makes use of a
+		// custom message box in [[MediaWiki:Rollback-success]]
+		if (mw.config.get('wgAction') === 'rollback') {
+			var $vandalTalkLink = $('#mw-rollback-success').find('.mw-usertoollinks a').first();
+			if ($vandalTalkLink.length) {
+				$vandalTalkLink.css('font-weight', 'bold');
+				$vandalTalkLink.wrapInner($('<span/>').attr('title', 'Nếu thích hợp, bạn có thể sử dụng Twinkle để cảnh báo người dùng về các chỉnh sửa của họ đối với trang này.'));
+	
+				// Can't provide vanarticlerevid as only wgCurRevisionId is provided
+				var extraParam = 'vanarticle=' + mw.util.rawurlencode(Morebits.pageNameNorm);
+				var href = $vandalTalkLink.attr('href');
+				if (href.indexOf('?') === -1) {
+					$vandalTalkLink.attr('href', href + '?' + extraParam);
+				} else {
+					$vandalTalkLink.attr('href', href + '&' + extraParam);
+				}
+			}
+		}
+	};
+	
+	// Used to close window when switching to ARV in autolevel
+	Twinkle.warn.dialog = null;
+	
+	Twinkle.warn.callback = function twinklewarnCallback() {
+		if (mw.config.get('wgRelevantUserName') === mw.config.get('wgUserName') &&
+			!confirm('Bạn sắp cảnh báo chính mình! Bạn có chắc muốn tiếp tục?')) {
+			return;
+		}
+	
+		var dialog;
+		Twinkle.warn.dialog = new Morebits.simpleWindow(600, 440);
+		dialog = Twinkle.warn.dialog;
+		dialog.setTitle('Cảnh báo/thông báo người dùng');
+		dialog.setScriptName('Twinkle');
+		dialog.addFooterLink('Chọn cấp độ cảnh báo', 'WP:UWUL#Danh sách bản mẫu');
+		dialog.addFooterLink('Trợ giúp Twinkle', 'WP:TW/DOC#cảnh báo');
+	
+		var form = new Morebits.quickForm(Twinkle.warn.callback.evaluate);
+		var main_select = form.append({
 			type: 'field',
-			label: 'Chọn kiểu thông báo/cảnh báo',
-			tooltip: 'Đầu tiên chọn một nhóm cảnh báo sau đó chọn các cảnh báo cụ thể.'
-		} );
-
-	var main_group = main_select.append( {
+			label: 'Chọn loại cảnh báo/thông báo cần sử dụng',
+			tooltip: 'Trước tiên, hãy chọn một nhóm cảnh báo chính, sau đó chọn cảnh báo cụ thể.'
+		});
+	
+		var main_group = main_select.append({
 			type: 'select',
 			name: 'main_group',
-			event:Twinkle.warn.callback.change_category
-		} );
-
-	var defaultGroup = parseInt(Twinkle.getPref('defaultWarningGroup'), 10);
-	main_group.append( { type: 'option', label: 'Thông báo (1)', value: 'level1', selected: ( defaultGroup === 1 || defaultGroup < 1 || ( Morebits.userIsInGroup( 'sysop' ) ? defaultGroup > 8 : defaultGroup > 7 ) ) } );
-	main_group.append( { type: 'option', label: 'Chú ý (2)', value: 'level2', selected: ( defaultGroup === 2 ) } );
-	main_group.append( { type: 'option', label: 'Cảnh báo (3)', value: 'level3', selected: ( defaultGroup === 3 ) } );
-	main_group.append( { type: 'option', label: 'Cảnh báo lần cuối (4)', value: 'level4', selected: ( defaultGroup === 4 ) } );
-	main_group.append( { type: 'option', label: 'Cảnh báo duy nhất (4im)', value: 'level4im', selected: ( defaultGroup === 5 ) } );
-	main_group.append( { type: 'option', label: 'Các thông báo đơn', value: 'singlenotice', selected: ( defaultGroup === 6 ) } );
-	main_group.append( { type: 'option', label: 'Các cảnh báo đơn', value: 'singlewarn', selected: ( defaultGroup === 7 ) } );
-	if( Twinkle.getPref( 'customWarningList' ).length ) {
-		main_group.append( { type: 'option', label: 'Cảnh báo tùy biến', value: 'custom', selected: ( defaultGroup === 9 ) } );
-	}
-
-	main_select.append( { type: 'select', name: 'sub_group', event:Twinkle.warn.callback.change_subcategory } ); //Will be empty to begin with.
-
-	form.append( {
+			tooltip: 'Bạn có thể thay đổi lựa chọn mặc định trong Tùy chọn Twinkle của mình',
+			event: Twinkle.warn.callback.change_category
+		});
+	
+		var defaultGroup = parseInt(Twinkle.getPref('defaultWarningGroup'), 10);
+		main_group.append({ type: 'option', label: 'Tự động chọn cấp độ (1-4)', value: 'autolevel', selected: defaultGroup === 11 });
+		main_group.append({ type: 'option', label: '1: Lưu ý chung', value: 'level1', selected: defaultGroup === 1 });
+		main_group.append({ type: 'option', label: '2: Chú ý', value: 'level2', selected: defaultGroup === 2 });
+		main_group.append({ type: 'option', label: '3: Cảnh báo', value: 'level3', selected: defaultGroup === 3 });
+		main_group.append({ type: 'option', label: '4: Cảnh báo cuối cùng', value: 'level4', selected: defaultGroup === 4 });
+		main_group.append({ type: 'option', label: '4im: Chỉ sử dụng cảnh báo', value: 'level4im', selected: defaultGroup === 5 });
+		if (Twinkle.getPref('combinedSingletMenus')) {
+			main_group.append({ type: 'option', label: 'Tin nhắn về một vấn đề', value: 'singlecombined', selected: defaultGroup === 6 || defaultGroup === 7 });
+		} else {
+			main_group.append({ type: 'option', label: 'Thông báo về một vấn đề', value: 'singlenotice', selected: defaultGroup === 6 });
+			main_group.append({ type: 'option', label: 'Cảnh báo một vấn đề', value: 'singlewarn', selected: defaultGroup === 7 });
+		}
+		if (Twinkle.getPref('customWarningList').length) {
+			main_group.append({ type: 'option', label: 'Cảnh báo tùy chỉnh', value: 'custom', selected: defaultGroup === 9 });
+		}
+		main_group.append({ type: 'option', label: 'Tất cả bản mẫu cảnh báo', value: 'kitchensink', selected: defaultGroup === 10 });
+	
+		main_select.append({ type: 'select', name: 'sub_group', event: Twinkle.warn.callback.change_subcategory }); // Will be empty to begin with.
+	
+		form.append({
 			type: 'input',
 			name: 'article',
-			label: 'Bài viết',
-			value:( Morebits.queryString.exists( 'vanarticle' ) ? Morebits.queryString.get( 'vanarticle' ) : '' ),
-			tooltip: 'Thông báo liên kết đến bài viết khi bạn thực hiện lùi sửa. Nếu không cần tạo liên kết thì để trống.'
-		} );
-
-	var more = form.append( { type: 'field', name: 'reasonGroup', label: 'Thông tin cảnh báo' } );
-	more.append( { type: 'textarea', label: 'Tin nhắn khác:', name: 'reason', tooltip: 'Có thể là một lý do nào đó hoặc giải thích chi tiết hơn' } );
-
-	var previewlink = document.createElement( 'a' );
-	$(previewlink).click(function(){
-		Twinkle.warn.callbacks.preview(result);  // |result| is defined below
-	});
-	previewlink.style.cursor = "pointer";
-	previewlink.textContent = 'Preview';
-	more.append( { type: 'div', id: 'warningpreview', label: [ previewlink ] } );
-	more.append( { type: 'div', id: 'twinklewarn-previewbox', style: 'display: none' } );
-
-	more.append( { type: 'submit', label: 'Submit' } );
-
-	var result = form.render();
-	Window.setContent( result );
-	Window.display();
-	result.main_group.root = result;
-	result.previewer = new Morebits.wiki.preview($(result).find('div#twinklewarn-previewbox').last()[0]);
-
-	// We must init the first choice (General Note);
-	var evt = document.createEvent( "Event" );
-	evt.initEvent( 'change', true, true );
-	result.main_group.dispatchEvent( evt );
-};
-
-// This is all the messages that might be dispatched by the code
-// Each of the individual templates require the following information:
-//   label (required): A short description displayed in the dialog
-//   summary (required): The edit summary used. If an article name is entered, the summary is postfixed with "on [[article]]", and it is always postfixed with ". $summaryAd"
-//   suppressArticleInSummary (optional): Set to true to suppress showing the article name in the edit summary. Useful if the warning relates to attack pages, or some such.
-Twinkle.warn.messages = {
-	level1: {
-		"Common warnings": {
-			"cb-ph1": {
-				label: "Phá hoại",
-				summary: "Thông báo: Sửa đổi không mang tính xây dựng"
-			},
-			"cb-disruptive1": {
-				label: "Disruptive editing",
-				summary: "Thông báo: Unconstructive editing"
-			},
-			"cb-tn1": {
-				label: "Sửa đổi thử nghiệm",
-				summary: "Thông báo: Sửa đổi thử nghiệm"
-			},
-			"cb-xóa1": {
-				label: "Xóa nội dung, tẩy trống trang",
-				summary: "Thông báo: Xóa nội dung, tẩy trống trang"
+			label: 'Trang được liên kết',
+			value: mw.util.getParamValue('vanarticle') || '',
+			tooltip: 'Một trang có thể được liên kết bên trong thông báo, có lẽ vì nó được lùi lại về trang đã gửi thông báo này. Để trống nếu không có trang nào được liên kết.'
+		});
+	
+		form.append({
+			type: 'div',
+			label: '',
+			style: 'color: red',
+			id: 'twinkle-warn-warning-messages'
+		});
+	
+	
+		var more = form.append({ type: 'field', name: 'reasonGroup', label: 'Thông tin cảnh báo' });
+		more.append({ type: 'textarea', label: 'Tin nhắn tùy chỉnh:', name: 'reason', tooltip: 'Có lẽ một lý do hoặc một thông báo chi tiết hơn phải được thêm vào' });
+	
+		var previewlink = document.createElement('a');
+		$(previewlink).click(function() {
+			Twinkle.warn.callbacks.preview(result);  // |result| is defined below
+		});
+		previewlink.style.cursor = 'pointer';
+		previewlink.textContent = 'Xem trước';
+		more.append({ type: 'div', id: 'warningpreview', label: [ previewlink ] });
+		more.append({ type: 'div', id: 'twinklewarn-previewbox', style: 'display: none' });
+	
+		more.append({ type: 'submit', label: 'Gửi' });
+	
+		var result = form.render();
+		dialog.setContent(result);
+		dialog.display();
+		result.main_group.root = result;
+		result.previewer = new Morebits.wiki.preview($(result).find('div#twinklewarn-previewbox').last()[0]);
+	
+		// Potential notices for staleness and missed reverts
+		var vanrevid = mw.util.getParamValue('vanarticlerevid');
+		if (vanrevid) {
+			var message = '';
+			var query = {};
+	
+			// If you tried reverting, check if *you* actually reverted
+			if (!mw.util.getParamValue('noautowarn') && mw.util.getParamValue('vanarticle')) { // Via fluff link
+				query = {
+					action: 'query',
+					titles: mw.util.getParamValue('vanarticle'),
+					prop: 'revisions',
+					rvstartid: vanrevid,
+					rvlimit: 2,
+					rvdir: 'newer',
+					rvprop: 'user'
+				};
+	
+				new Morebits.wiki.api('Kiểm tra xem bạn đã lùi lại (revert) trang thành công', query, function(apiobj) {
+					var revertUser = $(apiobj.getResponse()).find('revisions rev')[1].getAttribute('user');
+					if (revertUser && revertUser !== mw.config.get('wgUserName')) {
+						message += ' Ai đó đã lùi lại (revert) trang và có thể đã cảnh báo người dùng.';
+						$('#twinkle-warn-warning-messages').text('Note:' + message);
+					}
+				}).post();
 			}
-		},
-		"Behavior in articles": {
-			"cb-biog1": {
-				label: "Thêm thông tin gây tranh cãi không nguồn về người đang sống",
-				summary: "Thông báo: Thêm thông tin gây tranh cãi không nguồn về người đang sống"
-			},
-			"cb-defamatory1": {
-				label: "Addition of defamatory content",
-				summary: "Thông báo: Addition of defamatory content"
-			},
-			"cb-error1": {
-				label: "Chèn các lỗi cố ý",
-				summary: "Thông báo: Chèn các lỗi cố ý"
-			},
-			"cb-genre1": {
-				label: "Frequent or mass changes to genres without consensus or references",
-				summary: "Thông báo: Frequent or mass changes to genres without consensus or references"
-			},
-			"cb-image1": {
-				label: "Phá hoại liên quan đến hình ảnh",
-				summary: "Thông báo: Phá hoại liên quan đến hình ảnh"
-			},
-			"cb-nghịch thử": {
-				label: "Nghịch thử",
-				summary: "Thông báo: Nghịch thử"
-			},
-			"cb-nor1": {
-				label: "Thêm các nghiên cứu chưa được công bố",
-				summary: "Thông báo: Thêm các nghiên cứu chưa được công bố"
-			},
-			"cb-notcensored1": {
-				label: "Censorship of material",
-				summary: "Thông báo: Censorship of material"
-			},
-			"cb-own1": {
-				label: "Ownership of articles",
-				summary: "Thông báo: Ownership of articles"
-			},
-			"cb-tdel1": {
-				label: "Removal of maintenance templates",
-				summary: "Thông báo: Removal of maintenance templates"
-			},
-			"cb-unsourced1": {
-				label: "Thêm thông tin không nguồn hoặc không đúng",
-				summary: "Thông báo: Thêm thông tin không nguồn hoặc không đúng"
-			}
-		},
-		"Promotions and spam": {
-			"cb-qc1": {
-				label: "Sử dụng Wikipedia để quảng cáo hoặc quảng bá",
-				summary: "Thông báo: Sử dụng Wikipedia để quảng cáo hoặc quảng bá"
-			},
-			"cb-npov1": {
-				label: "Sửa đổi không trung lập",
-				summary: "Thông báo: Sửa đổi không trung lập"
-			},
-			"cb-spam1": {
-				label: "Thêm các liên kết spam",
-				summary: "Thông báo: Thêm các liên kết spam"
-			}
-		},
-		"Behavior towards other editors": {
-			"cb-agf1": {
-				label: "Not assuming good faith",
-				summary: "Thông báo: Not assuming good faith"
-			},
-			"cb-harass1": {
-				label: "Harassment of other users",
-				summary: "Thông báo: Harassment of other users"
-			},
-			"cb-npa1": {
-				label: "Personal attack directed at a specific editor",
-				summary: "Thông báo: Personal attack directed at a specific editor"
-			},
-			"cb-tempabuse1": {
-				label: "Improper use of warning or blocking template",
-				summary: "Thông báo: Improper use of warning or blocking template"
-			}
-		},
-		"Removal of deletion tags": {
-			"cb-afd1": {
-				label: "Removing {{afd}} templates",
-				summary: "Thông báo: Removing {{afd}} templates"
-			},
-			"cb-blpprod1": {
-				label: "Removing {{blp prod}} templates",
-				summary: "Thông báo: Removing {{blp prod}} templates"
-			},
-			"cb-idt1": {
-				label: "Xóa các bản mẫu đề nghị xóa tập tin",
-				summary: "Thông báo: Xóa các bản mẫu đề nghị xóa tập tin"
-			},
-			"cb-speedy1": {
-				label: "Removing speedy deletion tags",
-				summary: "Thông báo: Removing speedy deletion tags"
-			}
-		},
-		"Other": {
-			"cb-chat1": {
-				label: "Thảo luận kiểu diễn đàn",
-				summary: "Thông báo: Thảo luận kiểu diễn đàn"
-			},
-			"cb-create1": {
-				label: "Tạo nhiều trang không phù hợp",
-				summary: "Thông báo: Tạo nhiều trang không phù hợp"
-			},
-			"cb-mos1": {
-				label: "Manual of style",
-				summary: "Thông báo: Formatting, date, language, etc (Manual of style)"
-			},
-			"cb-move1": {
-				label: "Page moves against naming conventions or consensus",
-				summary: "Thông báo: Page moves against naming conventions or consensus"
-			},
-			"cb-tpv1": {
-				label: "Refactoring others' talk page comments",
-				summary: "Thông báo: Refactoring others' talk page comments"
-			},
-			"cb-upload1": {
-				label: "Tải lên nhiều hình không bách khoa",
-				summary: "Thông báo: Tải lên nhiều hình không bách khoa"
-			}
-		}/*,
-		"To be removed from Twinkle": {
-			"cb-redirect1": {
-				label: "Tạo nhiều trang đổi hướng không phù hợp",
-				summary: "Thông báo: Tạo nhiều trang đổi hướng không phù hợp"
-			},
-			"cb-tdel1": {
-				label: "Uploading files missing copyright status",
-				summary: "Thông báo: Uploading files missing copyright status"
-			},
-			"cb-af1": {
-				label: "Inappropriate feedback through the Article Feedback Tool",
-				summary: "Thông báo: Inappropriate feedback through the Article Feedback Tool"
-			}
-		}*/
-	},
-
-
-	level2: {
-		"Common warnings": {
-			"cb-ph2": {
-				label: "Phá hoại",
-				summary: "Chú ý: Phá hoại"
-			},
-			"cb-disruptive2": {
-				label: "Disruptive editing",
-				summary: "Chú ý: Unconstructive editing"
-			},
-			"cb-tn2": {
-				label: "Sửa đổi thử nghiệm",
-				summary: "Chú ý: Sửa đổi thử nghiệm"
-			},
-			"cb-xóa2": {
-				label: "Xóa nội dung, tẩy trống trang",
-				summary: "Chú ý: Xóa nội dung, tẩy trống trang"
-			}
-		},
-		"Behavior in articles": {
-			"cb-biog2": {
-				label: "Thêm thông tin gây tranh cãi không nguồn về người đang sống",
-				summary: "Chú ý: Thêm thông tin gây tranh cãi không nguồn về người đang sống"
-			},
-			"cb-defamatory2": {
-				label: "Addition of defamatory content",
-				summary: "Chú ý: Addition of defamatory content"
-			},
-			"cb-error2": {
-				label: "Chèn các lỗi cố ý",
-				summary: "Chú ý: Chèn các lỗi cố ý"
-			},
-			"cb-genre2": {
-				label: "Frequent or mass changes to genres without consensus or references",
-				summary: "Chú ý: Frequent or mass changes to genres without consensus or references"
-			},
-			"cb-image2": {
-				label: "Phá hoại liên quan đến hình ảnh",
-				summary: "Chú ý: Phá hoại liên quan đến hình ảnh"
-			},
-			"cb-joke2": {
-				label: "Using improper humor in articles",
-				summary: "Chú ý: Using improper humor in articles"
-			},
-			"cb-nor2": {
-				label: "Thêm các nghiên cứu chưa được công bố",
-				summary: "Chú ý: Thêm các nghiên cứu chưa được công bố"
-			},
-			"cb-notcensored2": {
-				label: "Censorship of material",
-				summary: "Chú ý: Censorship of material"
-			},
-			"cb-own2": {
-				label: "Ownership of articles",
-				summary: "Chú ý: Ownership of articles"
-			},
-			"cb-tdel2": {
-				label: "Xóa các bản mẫu bảo trì",
-				summary: "Chú ý: Xóa các bản mẫu bảo trì"
-			},
-			"cb-unsourced2": {
-				label: "Thêm thông tin không nguồn hoặc không đúng",
-				summary: "Chú ý: Thêm thông tin không nguồn hoặc không đúng"
-			}
-		},
-		"Promotions and spam": {
-			"cb-qc2": {
-				label: "Sử dụng Wikipedia để quảng cáo hoặc quảng bá",
-				summary: "Chú ý: Sử dụng Wikipedia để quảng cáo hoặc quảng bá"
-			},
-			"cb-npov2": {
-				label: "Sửa đổi không trung lập",
-				summary: "Chú ý: Sửa đổi không trung lập"
-			},
-			"cb-spam2": {
-				label: "Thêm các liên kết spam",
-				summary: "Chú ý: Thêm các liên kết spam"
-			}
-		},
-		"Behavior towards other editors": {
-			"cb-agf2": {
-				label: "Not assuming good faith",
-				summary: "Chú ý: Not assuming good faith"
-			},
-			"cb-harass2": {
-				label: "Harassment of other users",
-				summary: "Chú ý: Harassment of other users"
-			},
-			"cb-npa2": {
-				label: "Personal attack directed at a specific editor",
-				summary: "Chú ý: Personal attack directed at a specific editor"
-			},
-			"cb-tempabuse2": {
-				label: "Improper use of warning or blocking template",
-				summary: "Chú ý: Improper use of warning or blocking template"
-			}
-		},
-		"Removal of deletion tags": {
-			"cb-afd2": {
-				label: "Removing {{afd}} templates",
-				summary: "Chú ý: Removing {{afd}} templates"
-			},
-			"cb-blpprod2": {
-				label: "Removing {{blp prod}} templates",
-				summary: "Chú ý: Removing {{blp prod}} templates"
-			},
-			"cb-idt2": {
-				label: "Xóa các bản mẫu đề nghị xóa tập tin",
-				summary: "Chú ý: Xóa các bản mẫu đề nghị xóa tập tin"
-			},
-			"cb-speedy2": {
-				label: "Removing speedy deletion tags",
-				summary: "Chú ý: Removing speedy deletion tags"
-			}
-		},
-		"Other": {
-			"cb-attempt2": {
-				label: "Triggering the edit filter",
-				summary: "Chú ý: Triggering the edit filter"
-			},
-			"cb-chat2": {
-				label: "Thảo luận kiểu diễn đàn",
-				summary: "Chú ý: Thảo luận kiểu diễn đàn"
-			},
-			"cb-create2": {
-				label: "Tạo nhiều trang không phù hợp",
-				summary: "Chú ý: Tạo nhiều trang không phù hợp"
-			},
-			"cb-mos2": {
-				label: "Manual of style",
-				summary: "Chú ý: Formatting, date, language, etc (Manual of style)"
-			},
-			"cb-move2": {
-				label: "Page moves against naming conventions or consensus",
-				summary: "Chú ý: Page moves against naming conventions or consensus"
-			},
-			"cb-tpv2": {
-				label: "Refactoring others' talk page comments",
-				summary: "Chú ý: Refactoring others' talk page comments"
-			},
-			"cb-upload2": {
-				label: "Tải lên nhiều hình không bách khoa",
-				summary: "Chú ý: Tải lên nhiều hình không bách khoa"
-			}
-		}/*,
-		"To be removed from Twinkle": {
-			"cb-redirect2": {
-				label: "Tạo nhiều trang đổi hướng không phù hợp",
-				summary: "Chú ý: Tạo nhiều trang đổi hướng không phù hợp"
-			},
-			"cb-ics2": {
-				label: "Tải tập tin lên mà không có thẻ bản quyền",
-				summary: "Chú ý: Tải tập tin lên mà không có thẻ bản quyền"
-			}
-		}*/
-	},
-
-
-	level3: {
-		"Common warnings": {
-			"cb-ph3": {
-				label: "Phá hoại",
-				summary: "Cảnh báo: Phá hoại"
-			},
-			"cb-disruptive3": {
-				label: "Disruptive editing",
-				summary: "Cảnh báo: Disruptive editing"
-			},
-			"cb-tn3": {
-				label: "Sửa đổi thử nghiệm",
-				summary: "Cảnh báo: Sửa đổi thử nghiệm"
-			},
-			"cb-xóa3": {
-				label: "Xóa nội dung, tẩy trống trang",
-				summary: "Cảnh báo: Xóa nội dung, tẩy trống trang"
-			}
-		},
-		"Behavior in articles": {
-			"cb-biog3": {
-				label: "Thêm thông tin gây tranh cãi không nguồn về người đang sống",
-				summary: "Cảnh báo: Thêm thông tin gây tranh cãi không nguồn về người đang sống"
-			},
-			"cb-defamatory3": {
-				label: "Addition of defamatory content",
-				summary: "Cảnh báo: Addition of defamatory content"
-			},
-			"cb-error3": {
-				label: "Chèn các lỗi cố ý",
-				summary: "Cảnh báo: Chèn các lỗi cố ý"
-			},
-			"cb-genre3": {
-				label: "Frequent or mass changes to genres without consensus or reference",
-				summary: "Cảnh báo: Frequent or mass changes to genres without consensus or reference"
-			},
-			"cb-image3": {
-				label: "Phá hoại liên quan đến hình ảnh",
-				summary: "Cảnh báo: Phá hoại liên quan đến hình ảnh"
-			},
-			"cb-joke3": {
-				label: "Using improper humor in articles",
-				summary: "Cảnh báo: Using improper humor in articles"
-			},
-			"cb-nor3": {
-				label: "Thêm các nghiên cứu chưa được công bố",
-				summary: "Cảnh báo: Thêm các nghiên cứu chưa được công bố"
-			},
-			"cb-notcensored3": {
-				label: "Censorship of material",
-				summary: "Cảnh báo: Censorship of material"
-			},
-			"cb-own3": {
-				label: "Ownership of articles",
-				summary: "Cảnh báo: Ownership of articles"
-			},
-			"cb-tdel3": {
-				label: "Xóa các bản mẫu bảo trì",
-				summary: "Cảnh báo: Xóa các bản mẫu bảo trì"
-			},
-			"cb-unsourced3": {
-				label: "Thêm thông tin không nguồn hoặc không đúng",
-				summary: "Cảnh báo: Thêm thông tin không nguồn hoặc không đúng"
-			}
-		},
-		"Promotions and spam": {
-			"cb-qc3": {
-				label: "Sử dụng Wikipedia để quảng cáo hoặc quảng bá",
-				summary: "Cảnh báo: Sử dụng Wikipedia để quảng cáo hoặc quảng bá"
-			},
-			"cb-npov3": {
-				label: "Sửa đổi không trung lập",
-				summary: "Cảnh báo: Sửa đổi không trung lập"
-			},
-			"cb-spam3": {
-				label: "Thêm các liên kết spam",
-				summary: "Cảnh báo: Thêm các liên kết spam"
-			}
-		},
-		"Behavior towards other users": {
-			"cb-agf3": {
-				label: "Not assuming good faith",
-				summary: "Cảnh báo: Not assuming good faith"
-			},
-			"cb-harass3": {
-				label: "Harassment of other users",
-				summary: "Cảnh báo: Harassment of other users"
-			},
-			"cb-npa3": {
-				label: "Personal attack directed at a specific editor",
-				summary: "Cảnh báo: Personal attack directed at a specific editor"
-			}
-		},
-		"Removal of deletion tags": {
-			"cb-afd3": {
-				label: "Removing {{afd}} templates",
-				summary: "Cảnh báo: Removing {{afd}} templates"
-			},
-			"cb-blpprod3": {
-				label: "Removing {{blpprod}} templates",
-				summary: "Cảnh báo: Removing {{blpprod}} templates"
-			},
-			"cb-idt3": {
-				label: "Xóa các bản mẫu đề nghị xóa tập tin",
-				summary: "Cảnh báo: Xóa các bản mẫu đề nghị xóa tập tin"
-			},
-			"cb-speedy3": {
-				label: "Removing speedy deletion tags",
-				summary: "Cảnh báo: Removing speedy deletion tags"
-			}
-		},
-		"Other": {
-			"cb-attempt3": {
-				label: "Triggering the edit filter",
-				summary: "Cảnh báo: Triggering the edit filter"
-			},
-			"cb-chat3": {
-				label: "Thảo luận kiểu diễn đàn",
-				summary: "Cảnh báo: Thảo luận kiểu diễn đàn"
-			},
-			"cb-create3": {
-				label: "Tạo nhiều trang không phù hợp",
-				summary: "Cảnh báo: Tạo nhiều trang không phù hợp"
-			},
-			"cb-mos3": {
-				label: "Manual of style",
-				summary: "Cảnh báo: Formatting, date, language, etc (Manual of style)"
-			},
-			"cb-move3": {
-				label: "Page moves against naming conventions or consensus",
-				summary: "Cảnh báo: Page moves against naming conventions or consensus"
-			},
-			"cb-tpv3": {
-				label: "Refactoring others' talk page comments",
-				summary: "Cảnh báo: Refactoring others' talk page comments"
-			},
-			"cb-upload3": {
-				label: "Tải lên nhiều hình không bách khoa",
-				summary: "Cảnh báo: Tải lên nhiều hình không bách khoa"
-			}
-		}/*,
-		"To be removed from Twinkle": {
-			"cb-ics3": {
-				label: "Tải tập tin lên mà không có thẻ bản quyền",
-				summary: "Cảnh báo: Tải tập tin lên mà không có thẻ bản quyền"
-			},
-			"cb-redirect3": {
-				label: "Tạo nhiều trang đổi hướng không phù hợp",
-				summary: "Cảnh báo: Tạo nhiều trang đổi hướng không phù hợp"
-			}
-		}*/
-	},
-
-
-	level4: {
-		"Common warnings": {
-			"cb-ph4": {
-				label: "Phá hoại",
-				summary: "Cảnh báo cuối cùng: Phá hoại"
-			},
-			"cb-generic4": {
-				label: "Cảnh báo cuối cùng (for template series missing level 4)",
-				summary: "Cảnh báo cuối cùng"
-			},
-			"cb-xóa4": {
-				label: "Xóa nội dung, tẩy trống trang",
-				summary: "Cảnh báo cuối cùng: Xóa nội dung, tẩy trống trang"
-			}
-		},
-		"Behavior in articles": {
-			"cb-biog4": {
-				label: "Thêm thông tin gây tranh cãi không nguồn về người đang sống",
-				summary: "Cảnh báo cuối cùng: Thêm thông tin gây tranh cãi không nguồn về người đang sống"
-			},
-			"cb-defamatory4": {
-				label: "Addition of defamatory content",
-				summary: "Cảnh báo cuối cùng: Addition of defamatory content"
-			},
-			"cb-error4": {
-				label: "Chèn các lỗi cố ý",
-				summary: "Cảnh báo cuối cùng: Introducing deliberate factual errors"
-			},
-			"cb-genre4": {
-				label: "Frequent or mass changes to genres without consensus or reference",
-				summary: "Cảnh báo cuối cùng: Frequent or mass changes to genres without consensus or reference"
-			},
-			"cb-image4": {
-				label: "Phá hoại liên quan đến hình ảnh",
-				summary: "Cảnh báo cuối cùng: Phá hoại liên quan đến hình ảnh"
-			},
-			"cb-joke4": {
-				label: "Using improper humor in articles",
-				summary: "Cảnh báo cuối cùng: Using improper humor in articles"
-			},
-			"cb-nor4": {
-				label: "Thêm các nghiên cứu chưa được công bố",
-				summary: "Cảnh báo cuối cùng: Thêm các nghiên cứu chưa được công bố"
-			},
-			"cb-tdel4": {
-				label: "Xóa các bản mẫu bảo trì",
-				summary: "Cảnh báo cuối cùng: Xóa các bản mẫu bảo trì"
-			},
-			"cb-unsourced4": {
-				label: "Thêm thông tin không nguồn hoặc không đúng",
-				summary: "Cảnh báo cuối cùng: Thêm thông tin không nguồn hoặc không đúng"
-			}
-		},
-		"Promotions and spam": {
-			"cb-qc4": {
-				label: "Sử dụng Wikipedia để quảng cáo hoặc quảng bá",
-				summary: "Cảnh báo cuối cùng: Sử dụng Wikipedia để quảng cáo hoặc quảng bá"
-			},
-			"cb-npov4": {
-				label: "Sửa đổi không trung lập",
-				summary: "Cảnh báo cuối cùng: Sửa đổi không trung lập"
-			},
-			"cb-spam4": {
-				label: "Thêm các liên kết spam",
-				summary: "Cảnh báo cuối cùng: Thêm các liên kết spam"
-			}
-		},
-		"Behavior towards other editors": {
-			"cb-harass4": {
-				label: "Harassment of other users",
-				summary: "Cảnh báo cuối cùng: Harassment of other users"
-			},
-			"cb-npa4": {
-				label: "Personal attack directed at a specific editor",
-				summary: "Cảnh báo cuối cùng: Personal attack directed at a specific editor"
-			}
-		},
-		"Removal of deletion tags": {
-			"cb-afd4": {
-				label: "Removing {{afd}} templates",
-				summary: "Cảnh báo cuối cùng: Removing {{afd}} templates"
-			},
-			"cb-blpprod4": {
-				label: "Removing {{blp prod}} templates",
-				summary: "Cảnh báo cuối cùng: Removing {{blp prod}} templates"
-			},
-			"cb-idt4": {
-				label: "Xóa các bản mẫu đề nghị xóa tập tin",
-				summary: "Cảnh báo cuối cùng: Xóa các bản mẫu đề nghị xóa tập tin"
-			},
-			"cb-speedy4": {
-				label: "Removing speedy deletion tags",
-				summary: "Cảnh báo cuối cùng: Removing speedy deletion tags"
-			}
-		},
-		"Other": {
-			"cb-attempt4": {
-				label: "Triggering the edit filter",
-				summary: "Cảnh báo cuối cùng: Triggering the edit filter"
-			},
-			"cb-chat4": {
-				label: "Thảo luận kiểu diễn đàn",
-				summary: "Cảnh báo cuối cùng: Thảo luận kiểu diễn đàn"
-			},
-			"cb-create4": {
-				label: "Tạo nhiều trang không phù hợp",
-				summary: "Cảnh báo cuối cùng: Tạo nhiều trang không phù hợp"
-			},
-			"cb-mos4": {
-				label: "Manual of style",
-				summary: "Cảnh báo cuối cùng: Formatting, date, language, etc (Manual of style)"
-			},
-			"cb-move4": {
-				label: "Page moves against naming conventions or consensus",
-				summary: "Cảnh báo cuối cùng: Page moves against naming conventions or consensus"
-			},
-			"cb-tpv4": {
-				label: "Refactoring others' talk page comments",
-				summary: "Cảnh báo cuối cùng: Refactoring others' talk page comments"
-			},
-			"cb-upload4": {
-				label: "Tải lên nhiều hình không bách khoa",
-				summary: "Cảnh báo cuối cùng: Tải lên nhiều hình không bách khoa"
-			}
-		}/*,
-		"To be removed from Twinkle": {
-			"cb-redirect4": {
-				label: "Tạo nhiều trang đổi hướng không phù hợp",
-				summary: "Cảnh báo cuối cùng: Tạo nhiều trang đổi hướng không phù hợp"
-			},
-			"cb-ics4": {
-				label: "Tải tập tin lên mà không có thẻ bản quyền",
-				summary: "Cảnh báo cuối cùng: Tải tập tin lên mà không có thẻ bản quyền"
-			}
-		}*/
-	},
-
-
-	level4im: {
-		"Common warnings": {
-			"cb-ph4im": {
-				label: "Phá hoại",
-				summary: "Cảnh báo duy nhất: Phá hoại"
-			},
-			"cb-xóa4im": {
-				label: "Xóa nội dung, tẩy trống trang",
-				summary: "Cảnh báo duy nhất: Xóa nội dung, tẩy trống trang"
-			}
-		},
-		"Behavior in articles": {
-			"cb-biog4im": {
-				label: "Thêm thông tin gây tranh cãi không nguồn về người đang sống",
-				summary: "Cảnh báo duy nhất: Thêm thông tin gây tranh cãi không nguồn về người đang sống"
-			},
-			"cb-defamatory4im": {
-				label: "Addition of defamatory content",
-				summary: "Cảnh báo duy nhất: Addition of defamatory content"
-			},
-			"cb-image4im": {
-				label: "Phá hoại liên quan đến hình ảnh",
-				summary: "Cảnh báo duy nhất: Phá hoại liên quan đến hình ảnh"
-			},
-			"cb-joke4im": {
-				label: "Using improper humor",
-				summary: "Cảnh báo duy nhất: Using improper humor"
-			},
-			"cb-own4im": {
-				label: "Ownership of articles",
-				summary: "Cảnh báo duy nhất: Ownership of articles"
-			}
-		},
-		"Promotions and spam": {
-			"cb-qc4im": {
-				label: "Sử dụng Wikipedia để quảng cáo hoặc quảng bá",
-				summary: "Cảnh báo duy nhất: Sử dụng Wikipedia để quảng cáo hoặc quảng bá"
-			},
-			"cb-spam4im": {
-				label: "Thêm các liên kết spam",
-				summary: "Cảnh báo duy nhất: Thêm các liên kết spam"
-			}
-		},
-		"Behavior towards other editors": {
-			"cb-harass4im": {
-				label: "Harassment of other users",
-				summary: "Cảnh báo duy nhất: Harassment of other users"
-			},
-			"cb-npa4im": {
-				label: "Personal attack directed at a specific editor",
-				summary: "Cảnh báo duy nhất: Personal attack directed at a specific editor"
-			}
-		},
-		"Other": {
-			"cb-create4im": {
-				label: "Tạo nhiều trang không phù hợp",
-				summary: "Cảnh báo duy nhất: Tạo nhiều trang không phù hợp"
-			},
-			"cb-move4im": {
-				label: "Page moves against naming conventions or consensus",
-				summary: "Cảnh báo duy nhất: Page moves against naming conventions or consensus"
-			},
-			"cb-upload4im": {
-				label: "Tải lên nhiều hình không bách khoa",
-				summary: "Cảnh báo duy nhất: Tải lên nhiều hình không bách khoa"
-			}
-		}/*,
-		"To be removed from Twinkle": {
-			"cb-redirect4im": {
-				label: "Tạo nhiều trang đổi hướng không phù hợp",
-				summary: "Cảnh báo duy nhất: Tạo nhiều trang đổi hướng không phù hợp"
-			}
-		}*/
-	},
-
-	singlenotice: {
-		"cb-aiv": {
-			label: "Bad AIV report",
-			summary: "Thông báo: Bad AIV report"
-		},
-		"cb-autobiography": {
-			label: "Creating autobiographies",
-			summary: "Thông báo: Creating autobiographies"
-		},
-		"cb-badcat": {
-			label: "Adding incorrect categories",
-			summary: "Thông báo: Adding incorrect categories"
-		},
-		"cb-badlistentry": {
-			label: "Adding inappropriate entries to lists",
-			summary: "Thông báo: Adding inappropriate entries to lists"
-		},
-		"cb-bite": {
-			label: "\"Biting\" newcomers",
-			summary: "Thông báo: \"Biting\" newcomers",
-			suppressArticleInSummary: true  // non-standard (user name, not article), and not necessary
-		},
-		"cb-coi": {
-			label: "Conflict of interest",
-			summary: "Thông báo: Conflict of interest",
-			heading: "Managing a conflict of interest"
-		},
-		"cb-controversial": {
-			label: "Introducing controversial material",
-			summary: "Thông báo: Introducing controversial material"
-		},
-		"cb-copying": {
-			label: "Copying text to another page",
-			summary: "Thông báo: Copying text to another page"
-		},
-		"cb-crystal": {
-			label: "Adding speculative or unconfirmed information",
-			summary: "Thông báo: Adding speculative or unconfirmed information"
-		},
-		"cb-c&pmove": {
-			label: "Cut and paste moves",
-			summary: "Thông báo: Cut and paste moves"
-		},
-		"cb-dab": {
-			label: "Incorrect edit to a disambiguation page",
-			summary: "Thông báo: Incorrect edit to a disambiguation page"
-		},
-		"cb-date": {
-			label: "Unnecessarily changing date formats",
-			summary: "Thông báo: Unnecessarily changing date formats"
-		},
-		"cb-deadlink": {
-			label: "Removing proper sources containing dead links",
-			summary: "Thông báo: Removing proper sources containing dead links"
-		},
-		"cb-draftfirst": {
-			label: "User should draft in userspace without the risk of speedy deletion",
-			summary: "Thông báo: Consider drafting your article in [[Help:Userspace draft|userspace]]"
-		},
-		"cb-editsummary": {
-			label: "Not using edit summary",
-			summary: "Thông báo: Not using edit summary"
-		},
-		"cb-vietnamese": {
-			label: "Không thảo luận bằng tiếng Việt",
-			summary: "Thông báo: Không thảo luận bằng tiếng Việt"
-		},
-		"cb-hasty": {
-			label: "Hasty addition of speedy deletion tags",
-			summary: "Thông báo: Allow creators time to improve their articles before tagging them for deletion"
-		},
-		"cb-inline-el": {
-			label: "Adding external links to the body of an article",
-			summary: "Thông báo: Keep external links to External links sections at the bottom of an article"
-		},
-		"cb-italicize": {
-			label: "Italicize books, films, albums, magazines, TV series, etc within articles",
-			summary: "Thông báo: Italicize books, films, albums, magazines, TV series, etc within articles"
-		},
-		"cb-lang": {
-			label: "Thay đổi không cần thiết giữa các kiểu chính tả tiếng Việt",
-			summary: "Thông báo: Thay đổi không cần thiết giữa các kiểu chính tả tiếng Việt",
-			heading: "Kiểu chính tả tiếng Việt"
-		},
-		"cb-linking": {
-			label: "Excessive addition of redlinks or repeated blue links",
-			summary: "Thông báo: Excessive addition of redlinks or repeated blue links"
-		},
-		"cb-minor": {
-			label: "Incorrect use of minor edits check box",
-			summary: "Thông báo: Incorrect use of minor edits check box"
-		},
-		"cb-notvietnamese": {
-			label: "Tạo bài ngoại ngữ",
-			summary: "Thông báo: Tạo bài ngoại ngữ"
-		},
-		"cb-notvote": {
-			label: "We use consensus, not voting",
-			summary: "Thông báo: We use consensus, not voting"
-		},
-		"cb-plagiarism": {
-			label: "Copying from public domain sources without attribution",
-			summary: "Thông báo: Copying from public domain sources without attribution"
-		},
-		"cb-preview": {
-			label: "Use preview button to avoid mistakes",
-			summary: "Thông báo: Use preview button to avoid mistakes"
-		},
-		"cb-redlink": {
-			label: "Indiscriminate removal of redlinks",
-			summary: "Thông báo: Be careful when removing redlinks"
-		},
-		"cb-selfrevert": {
-			label: "Reverting self tests",
-			summary: "Thông báo: Reverting self tests"
-		},
-		"cb-socialnetwork": {
-			label: "Wikipedia is not a social network",
-			summary: "Thông báo: Wikipedia is not a social network"
-		},
-		"cb-sofixit": {
-			label: "Be bold and fix things yourself",
-			summary: "Thông báo: You can be bold and fix things yourself"
-		},
-		"cb-spoiler": {
-			label: "Adding spoiler alerts or removing spoilers from appropriate sections",
-			summary: "Thông báo: Don't delete or flag potential 'spoilers' in Wikipedia articles"
-		},
-		"cb-subst": {
-			label: "Remember to subst: templates",
-			summary: "Thông báo: Remember to subst: templates"
-		},
-		"cb-talkinarticle": {
-			label: "Talk in article",
-			summary: "Thông báo: Talk in article"
-		},
-		"cb-tilde": {
-			label: "Not signing posts",
-			summary: "Thông báo: Not signing posts"
-		},
-		"cb-toppost": {
-			label: "Posting at the top of talk pages",
-			summary: "Thông báo: Posting at the top of talk pages"
-		},
-		"cb-userspace draft finish": {
-			label: "Stale userspace draft",
-			summary: "Thông báo: Stale userspace draft"
-		},
-		"cb-vgscope": {
-			label: "Adding video game walkthroughs, cheats or instructions",
-			summary: "Thông báo: Adding video game walkthroughs, cheats or instructions"
-		},
-		"cb-warn": {
-			label: "Place user warning templates when reverting vandalism",
-			summary: "Thông báo: You can use user warning templates when reverting vandalism"
-		}
-	},
-
-
-	singlewarn: {
-		"cb-3rr": {
-			label: "Potential three-revert rule violation; see also cb-ew",
-			summary: "Cảnh báo: Three-revert rule"
-		},
-		"cb-affiliate": {
-			label: "Affiliate marketing",
-			summary: "Cảnh báo: Affiliate marketing"
-		},
-		"cb-agf-sock": {
-			label: "Use of multiple accounts (assuming good faith)",
-			summary: "Cảnh báo: Using multiple accounts"
-		},
-		"cb-attack": {
-			label: "Creating attack pages",
-			summary: "Cảnh báo: Creating attack pages",
-			suppressArticleInSummary: true
-		},
-		"cb-bizlist": {
-			label: "Business promotion",
-			summary: "Cảnh báo: Promoting a business"
-		},
-		"cb-botun": {
-			label: "Bot username",
-			summary: "Cảnh báo: Bot username"
-		},
-		"cb-canvass": {
-			label: "Canvassing",
-			summary: "Cảnh báo: Canvassing"
-		},
-		"cb-copyright": {
-			label: "Copyright violation",
-			summary: "Cảnh báo: Copyright violation"
-		},
-		"cb-copyright-link": {
-			label: "Linking to copyrighted works violation",
-			summary: "Cảnh báo: Linking to copyrighted works violation"
-		},
-		"cb-copyright-new": {
-			label: "Copyright violation (with explanation for new users)",
-			summary: "Thông báo: Avoiding copyright problems",
-			heading: "Wikipedia and copyright"
-		},
-		"cb-copyright-remove": {
-			label: "Removing {{copyvio}} template from articles",
-			summary: "Cảnh báo: Removing {{copyvio}} templates"
-		},
-		"cb-efsummary": {
-			label: "Edit summary triggering the edit filter",
-			summary: "Cảnh báo: Edit summary triggering the edit filter"
-		},
-		"cb-ew": {
-			label: "Edit warring (stronger wording)",
-			summary: "Cảnh báo: Edit warring"
-		},
-		"cb-ewsoft": {
-			label: "Edit warring (softer wording for newcomers)",
-			summary: "Cảnh báo: Edit warring"
-		},
-		"cb-hoax": {
-			label: "Creating hoaxes",
-			summary: "Cảnh báo: Creating hoaxes"
-		},
-		"cb-legal": {
-			label: "Making legal threats",
-			summary: "Cảnh báo: Making legal threats"
-		},
-		"cb-login": {
-			label: "Editing while logged out",
-			summary: "Cảnh báo: Editing while logged out"
-		},
-		"cb-multipleIPs": {
-			label: "Usage of multiple IPs",
-			summary: "Cảnh báo: Usage of multiple IPs"
-		},
-		"cb-pinfo": {
-			label: "Personal info",
-			summary: "Cảnh báo: Personal info"
-		},
-		"cb-salt": {
-			label: "Recreating salted articles under a different title",
-			summary: "Cảnh báo: Recreating creation-protected articles under a different title"
-		},
-		"cb-socksuspect": {
-			label: "Sockpuppetry",
-			summary: "Cảnh báo: You are a suspected [[WP:SOCK|sockpuppet]]"  // of User:...
-		},
-		"cb-upv": {
-			label: "Userpage vandalism",
-			summary: "Cảnh báo: Userpage vandalism"
-		},
-		"cb-username": {
-			label: "Tên không theo quy định",
-			summary: "Cảnh báo: Tên người dùng của bạn không được chấp nhận",
-			suppressArticleInSummary: true  // not relevant for this template
-		},
-		"cb-coi-username": {
-			label: "Username is against policy, and conflict of interest",
-			summary: "Cảnh báo: Username and conflict of interest policy",
-			heading: "Your username"
-		},
-		"cb-userpage": {
-			label: "Userpage or subpage is against policy",
-			summary: "Cảnh báo: Userpage or subpage is against policy"
-		},
-		"cb-wrongsummary": {
-			label: "Using inaccurate or inappropriate edit summaries",
-			summary: "Cảnh báo: Using inaccurate or inappropriate edit summaries"
-		}
-	}
-};
-
-Twinkle.warn.prev_article = null;
-Twinkle.warn.prev_reason = null;
-
-Twinkle.warn.callback.change_category = function twinklewarnCallbackChangeCategory(e) {
-	var value = e.target.value;
-	var sub_group = e.target.root.sub_group;
-	sub_group.main_group = value;
-	var old_subvalue = sub_group.value;
-	var old_subvalue_re;
-	if( old_subvalue ) {
-		old_subvalue = old_subvalue.replace(/\d*(im)?$/, '' );
-		old_subvalue_re = new RegExp( mw.RegExp.escape( old_subvalue ) + "(\\d*(?:im)?)$" );
-	}
-
-	while( sub_group.hasChildNodes() ){
-		sub_group.removeChild( sub_group.firstChild );
-	}
-
-	// worker function to create the combo box entries
-	var createEntries = function( contents, container, wrapInOptgroup ) {
-		// due to an apparent iOS bug, we have to add an option-group to prevent truncation of text
-		// (search WT:TW archives for "Problem selecting warnings on an iPhone")
-		if ( wrapInOptgroup && $.client.profile().platform === "iphone" ) {
-			var wrapperOptgroup = new Morebits.quickForm.element( {
-				type: 'optgroup',
-				label: 'Các bản mẫu có sẵn'
-			} );
-			wrapperOptgroup = wrapperOptgroup.render();
-			container.appendChild( wrapperOptgroup );
-			container = wrapperOptgroup;
-		}
-
-		$.each( contents, function( itemKey, itemProperties ) {
-			var key = (typeof itemKey === "string") ? itemKey : itemProperties.value;
-
-			var selected = false;
-			if( old_subvalue && old_subvalue_re.test( key ) ) {
-				selected = true;
-			}
-
-			var elem = new Morebits.quickForm.element( {
-				type: 'option',
-				label: "{{" + key + "}}: " + itemProperties.label,
-				value: key,
-				selected: selected
-			} );
-			var elemRendered = container.appendChild( elem.render() );
-			$(elemRendered).data("messageData", itemProperties);
-		} );
-	};
-
-	if( value === "singlenotice" || value === "singlewarn" ) {
-		// no categories, just create the options right away
-		createEntries( Twinkle.warn.messages[ value ], sub_group, true );
-	} else if( value === "custom" ) {
-		createEntries( Twinkle.getPref("customWarningList"), sub_group, true );
-	} else {
-		// create the option-groups
-		$.each( Twinkle.warn.messages[ value ], function( groupLabel, groupContents ) {
-			var optgroup = new Morebits.quickForm.element( {
-				type: 'optgroup',
-				label: groupLabel
-			} );
-			optgroup = optgroup.render();
-			sub_group.appendChild( optgroup );
-			// create the options
-			createEntries( groupContents, optgroup, false );
-		} );
-	}
-
-	// clear overridden label on article textbox
-	Morebits.quickForm.setElementTooltipVisibility(e.target.root.article, true);
-	Morebits.quickForm.resetElementLabel(e.target.root.article);
-
-	// hide the big red notice
-	$("#tw-warn-red-notice").remove();
-};
-
-Twinkle.warn.callback.change_subcategory = function twinklewarnCallbackChangeSubcategory(e) {
-	var main_group = e.target.form.main_group.value;
-	var value = e.target.form.sub_group.value;
-
-	// Tags that don't take a linked article, but something else (often a username).
-	// The value of each tag is the label next to the input field
-	var notLinkedArticle = {
-		"cb-agf-sock": "Optional username of other account (without User:) ",
-		"cb-bite": "Username of 'bitten' user (without User:) ",
-		"cb-socksuspect": "Username of sock master, if known (without User:) ",
-		"cb-username": "Username violates policy because... "
-	};
-
-	if( main_group === 'singlenotice' || main_group === 'singlewarn' ) {
-		if( notLinkedArticle[value] ) {
-			if(Twinkle.warn.prev_article === null) {
-				Twinkle.warn.prev_article = e.target.form.article.value;
-			}
-			e.target.form.article.notArticle = true;
-			e.target.form.article.value = '';
-
-			// change form labels according to the warning selected
-			Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
-			Morebits.quickForm.overrideElementLabel(e.target.form.article, notLinkedArticle[value]);
-		} else if( e.target.form.article.notArticle ) {
-			if(Twinkle.warn.prev_article !== null) {
-				e.target.form.article.value = Twinkle.warn.prev_article;
-				Twinkle.warn.prev_article = null;
-			}
-			e.target.form.article.notArticle = false;
-			Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, true);
-			Morebits.quickForm.resetElementLabel(e.target.form.article);
-		}
-	}
-
-	// add big red notice, warning users about how to use {{cb-[coi-]username}} appropriately
-	$("#tw-warn-red-notice").remove();
-
-	var $redWarning;
-	if (value === "cb-username") {
-		$redWarning = $("<div style='color: red;' id='tw-warn-red-notice'>{{cb-username}} should <b>not</b> be used for <b>blatant</b> username policy violations. " +
-			"Blatant violations should be reported directly to UAA (via Twinkle's ARV tab). " +
-			"{{cb-username}} should only be used in edge cases in order to engage in discussion with the user.</div>");
-		$redWarning.insertAfter(Morebits.quickForm.getElementLabelObject(e.target.form.reasonGroup));
-	} else if (value === "cb-coi-username") {
-		$redWarning = $("<div style='color: red;' id='tw-warn-red-notice'>{{cb-coi-username}} should <b>not</b> be used for <b>blatant</b> username policy violations. " +
-			"Blatant violations should be reported directly to UAA (via Twinkle's ARV tab). " +
-			"{{cb-coi-username}} should only be used in edge cases in order to engage in discussion with the user.</div>");
-		$redWarning.insertAfter(Morebits.quickForm.getElementLabelObject(e.target.form.reasonGroup));
-	}
-};
-
-Twinkle.warn.callbacks = {
-	getWarningWikitext: function(templateName, article, reason, isCustom) {
-		var text = "{{subst:" + templateName;
-
-		if (article) {
-			// add linked article for user warnings
-			text += '|1=' + article;
-		}
-		if (reason && !isCustom) {
-			// add extra message
-			if (templateName === 'cb-csd' || templateName === 'cb-probation' ||
-				templateName === 'cb-userspacenoindex' || templateName === 'cb-userpage') {
-				text += "|3=''" + reason + "''";
+	
+			// Confirm edit wasn't too old for a warning
+			var checkStale = function(vantimestamp) {
+				var revDate = new Morebits.date(vantimestamp);
+				if (vantimestamp && revDate.isValid()) {
+					if (revDate.add(24, 'hours').isBefore(new Date())) {
+						message += ' Chỉnh sửa này đã được thực hiện hơn 24 giờ trước nên một cảnh báo có thể đã cũ.';
+						$('#twinkle-warn-warning-messages').text('Note:' + message);
+					}
+				}
+			};
+	
+			var vantimestamp = mw.util.getParamValue('vantimestamp');
+			// Provided from a fluff module-based revert, no API lookup necessary
+			if (vantimestamp) {
+				checkStale(vantimestamp);
 			} else {
-				text += "|2=''" + reason + "''";
+				query = {
+					action: 'query',
+					prop: 'revisions',
+					rvprop: 'timestamp',
+					revids: vanrevid
+				};
+				new Morebits.wiki.api('Lấy giá trị thời gian phiên bản sửa đổi', query, function(apiobj) {
+					vantimestamp = $(apiobj.getResponse()).find('revisions rev').attr('timestamp');
+					checkStale(vantimestamp);
+				}).post();
 			}
 		}
-		text += '}}';
-
-		if (reason && isCustom) {
-			// we assume that custom warnings lack a {{{2}}} parameter
-			text += " ''" + reason + "''";
-		}
-
-		return text;
-	},
-	preview: function(form) {
-		var templatename = form.sub_group.value;
-		var linkedarticle = form.article.value;
-		var templatetext;
-
-		templatetext = Twinkle.warn.callbacks.getWarningWikitext(templatename, linkedarticle,
-			form.reason.value, form.main_group.value === 'custom');
-
-		form.previewer.beginRender(templatetext);
-	},
-	main: function( pageobj ) {
-		var text = pageobj.getPageText();
-		var params = pageobj.getCallbackParameters();
-		var messageData = params.messageData;
-
-		var history_re = /<!-- Template:(cb-.*?) -->.*?(\d{1,2}:\d{1,2}, \d{1,2} \w+ \d{4}) \(UTC\)/g;
-		var history = {};
-		var latest = { date: new Date( 0 ), type: '' };
-		var current;
-
-		while( ( current = history_re.exec( text ) ) ) {
-			var current_date = new Date( current[2] + ' UTC' );
-			if( !( current[1] in history ) ||  history[ current[1] ] < current_date ) {
-				history[ current[1] ] = current_date;
+	
+	
+		// We must init the first choice (General Note);
+		var evt = document.createEvent('Event');
+		evt.initEvent('change', true, true);
+		result.main_group.dispatchEvent(evt);
+	};
+	
+	// This is all the messages that might be dispatched by the code
+	// Each of the individual templates require the following information:
+	//   label (required): A short description displayed in the dialog
+	//   summary (required): The edit summary used. If an article name is entered, the summary is postfixed with "on [[article]]", and it is always postfixed with "."
+	//   suppressArticleInSummary (optional): Set to true to suppress showing the article name in the edit summary. Useful if the warning relates to attack pages, or some such.
+	Twinkle.warn.messages = {
+		levels: {
+			'Cảnh báo/Nhắc nhở chung': {
+				'uw-vandalism': {
+					level1: {
+						label: 'Phá hoại',
+						summary: 'Lưu ý chung: Chỉnh sửa không theo quy định'
+					},
+					level2: {
+						label: 'Phá hoại',
+						summary: 'Lưu ý: Chỉnh sửa không theo quy định'
+					},
+					level3: {
+						label: 'Phá hoại',
+						summary: 'Cảnh báo: Phá hoại'
+					},
+					level4: {
+						label: 'Phá hoại',
+						summary: 'Cảnh báo cuối cùng: Phá hoại'
+					},
+					level4im: {
+						label: 'Phá hoại',
+						summary: 'Chỉ dùng để cảnh báo: Phá hoại'
+					}
+				},
+				'uw-disruptive': {
+					level1: {
+						label: 'Sửa đổi gây hại',
+						summary: 'Lưu ý chung: Chỉnh sửa không theo quy định'
+					},
+					level2: {
+						label: 'Sửa đổi gây hại',
+						summary: 'Lưu ý: Chỉnh sửa không theo quy định'
+					},
+					level3: {
+						label: 'Sửa đổi gây hại',
+						summary: 'Cảnh báo: Chỉnh sửa không theo quy định'
+					}
+				},
+				'uw-test': {
+					level1: {
+						label: 'Sửa đổi thử nghiệm',
+						summary: 'Lưu ý chung: Sửa đổi thử nghiệm'
+					},
+					level2: {
+						label: 'Sửa đổi thử nghiệm',
+						summary: 'Lưu ý: Sửa đổi thử nghiệm'
+					},
+					level3: {
+						label: 'Sửa đổi thử nghiệm',
+						summary: 'Cảnh báo: Sửa đổi thử nghiệm'
+					}
+				},
+				'uw-delete': {
+					level1: {
+						label: 'Xóa nội dung, tẩy trống',
+						summary: 'Lưu ý chung: Xóa nội dung, tẩy trống'
+					},
+					level2: {
+						label: 'Xóa nội dung, tẩy trống',
+						summary: 'Lưu ý: Xóa nội dung, tẩy trống'
+					},
+					level3: {
+						label: 'Xóa nội dung, tẩy trống',
+						summary: 'Cảnh báo: Xóa nội dung, tẩy trống'
+					},
+					level4: {
+						label: 'Xóa nội dung, tẩy trống',
+						summary: 'Cảnh báo cuối cùng: Xóa nội dung, tẩy trống'
+					},
+					level4im: {
+						label: 'Xóa nội dung, tẩy trống',
+						summary: 'Chỉ dùng để cảnh báo: Xóa nội dung, tẩy trống'
+					}
+				},
+				'uw-generic': {
+					level4: {
+						label: 'Cảnh báo chung (đối với bản mẫu liên tiếp thiếu mức 4)',
+						summary: 'Thông báo cảnh báo cuối cùng'
+					}
+				}
+			},
+			'Hành vi trong bài viết': {
+				'uw-interlink': {
+					level1: {
+						label: 'Liên kết ngoại ngữ',
+						summary: 'Lưu ý chung: Liên kết ngoại ngữ với bài dịch từ các dự án Wikipedia khác'
+					}
+				},
+				'uw-machinetranslation': {
+					level1: {
+						label: 'Cảnh báo dịch máy',
+						summary: 'Lưu ý chung: Cảnh báo dịch máy với bài dịch từ các dự án Wikipedia khác'
+					}
+				},
+				'uw-biog': {
+					level1: {
+						label: 'Thêm thông tin gây tranh cãi không nguồn về người sống',
+						summary: 'Lưu ý chung: Thêm thông tin gây tranh cãi không nguồn về người sống'
+					},
+					level2: {
+						label: 'Thêm thông tin gây tranh cãi không nguồn về người sống',
+						summary: 'Cảnh báo: Thêm thông tin gây tranh cãi không nguồn về người sống'
+					},
+					level3: {
+						label: 'Thêm thông tin gây tranh cãi/phỉ báng không nguồn về người sống',
+						summary: 'Cảnh báo: Thêm thông tin gây tranh cãi không nguồn về người sống'
+					},
+					level4: {
+						label: 'Thêm thông tin gây tranh cãi/phỉ báng không nguồn về người sống',
+						summary: 'Cảnh báo cuối cùng: Thêm thông tin gây tranh cãi không nguồn về người sống'
+					},
+					level4im: {
+						label: 'Thêm thông tin phỉ báng không nguồn về người sống',
+						summary: 'Chỉ dùng để cảnh báo: Thêm thông tin gây tranh cãi không nguồn về người sống'
+					}
+				},
+				'uw-defamatory': {
+					level1: {
+						label: 'Thêm vào nội dung phỉ báng',
+						summary: 'Lưu ý chung: Thêm vào nội dung phỉ báng'
+					},
+					level2: {
+						label: 'Thêm vào nội dung phỉ báng',
+						summary: 'Cảnh báo: Thêm vào nội dung phỉ báng'
+					},
+					level3: {
+						label: 'Thêm vào nội dung phỉ báng',
+						summary: 'Cảnh báo: Thêm vào nội dung phỉ báng'
+					},
+					level4: {
+						label: 'Thêm vào nội dung phỉ báng',
+						summary: 'Cảnh báo cuối cùng: Thêm vào nội dung phỉ báng'
+					},
+					level4im: {
+						label: 'Thêm vào nội dung phỉ báng',
+						summary: 'Chỉ dùng để cảnh báo: Thêm vào nội dung phỉ báng'
+					}
+				},
+				'uw-error': {
+					level1: {
+						label: 'Thêm thông tin sai',
+						summary: 'Lưu ý chung: Thêm thông tin sai'
+					},
+					level2: {
+						label: 'Thêm thông tin sai',
+						summary: 'Cảnh báo: Thêm thông tin saic'
+					},
+					level3: {
+						label: 'Thêm thông tin sai',
+						summary: 'Cảnh báo: Cố ý thêm thông tin sai'
+					},
+					level4: {
+						label: 'Thêm thông tin sai',
+						summary: 'Cảnh báo cuối cùng: Cố ý thêm thông tin sai'
+					}
+				},
+				//'uw-genre': {
+				//	level1: {
+				//		label: 'Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn',
+				//		summary: 'Lưu ý chung: Frequent or mass changes to genres without consensus or references'
+				//	},
+				//	level2: {
+				//		label: 'Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn',
+				//		summary: 'Cảnh báo: Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn'
+				//	},
+				//	level3: {
+				//		label: 'Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn',
+				//		summary: 'Cảnh báo: Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn'
+				//	},
+				//	level4: {
+				//		label: 'Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn',
+				//		summary: 'Cảnh báo cuối cùng: Thay đổi thường xuyên hoặc hàng loạt đối với thể loại mà không có sự đồng thuận hoặc nguồn dẫn'
+				//	}
+				//},
+				'uw-image': {
+					level1: {
+						label: 'Phá hoại liên quan đến hình ảnh trong các bài viết',
+						summary: 'Lưu ý chung: Phá hoại liên quan đến hình ảnh trong các bài viết'
+					},
+					level2: {
+						label: 'Phá hoại liên quan đến hình ảnh trong các bài viết',
+						summary: 'Cảnh báo: Phá hoại liên quan đến hình ảnh trong các bài viết'
+					},
+					level3: {
+						label: 'Phá hoại liên quan đến hình ảnh trong các bài viết',
+						summary: 'Cảnh báo: Phá hoại liên quan đến hình ảnh trong các bài viết'
+					},
+					level4: {
+						label: 'Phá hoại liên quan đến hình ảnh trong các bài viết',
+						summary: 'Cảnh báo cuối cùng: Phá hoại liên quan đến hình ảnh trong các bài viết'
+					},
+					level4im: {
+						label: 'Phá hoại liên quan đến hình ảnh',
+						summary: 'Chỉ dùng để cảnh báo: Image-related vandalism'
+					}
+				},
+				'uw-joke': {
+					level1: {
+						label: 'Thêm nội dung hài hước, đùa giỡn vào bài',
+						summary: 'Lưu ý chung: Thêm nội dung hài hước, đùa giỡn vào bài'
+					},
+					level2: {
+						label: 'Thêm nội dung hài hước, đùa giỡn vào bài',
+						summary: 'Cảnh báo: Thêm nội dung hài hước, đùa giỡn vào bài'
+					},
+					level3: {
+						label: 'Thêm nội dung hài hước, đùa giỡn vào bài',
+						summary: 'Cảnh báo: Thêm nội dung hài hước, đùa giỡn vào bài'
+					},
+					level4: {
+						label: 'Thêm nội dung hài hước, đùa giỡn vào bài',
+						summary: 'Cảnh báo cuối cùng: Thêm nội dung hài hước, đùa giỡn vào bài'
+					},
+					level4im: {
+						label: 'Thêm nội dung hài hước, đùa giỡn vào bài',
+						summary: 'Chỉ dùng để cảnh báo: Thêm nội dung hài hước, đùa giỡn vào bài'
+					}
+				},
+				'uw-nor': {
+					level1: {
+						label: 'Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản',
+						summary: 'Lưu ý chung: Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản'
+					},
+					level2: {
+						label: 'Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản',
+						summary: 'Cảnh báo: Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản'
+					},
+					level3: {
+						label: 'Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản',
+						summary: 'Cảnh báo: Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản'
+					},
+					level4: {
+						label: 'Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản',
+						summary: 'Cảnh báo cuối cùng: Thêm nghiên cứu gốc, bao gồm tổng hợp các nguồn chưa được xuất bản'
+					}
+				},
+				'uw-notcensored': {
+					level1: {
+						label: 'Kiểm duyệt tài liệu',
+						summary: 'Lưu ý chung: Kiểm duyệt tài liệu'
+					},
+					level2: {
+						label: 'Kiểm duyệt tài liệu',
+						summary: 'Cảnh báo: Kiểm duyệt tài liệu'
+					},
+					level3: {
+						label: 'Kiểm duyệt tài liệu',
+						summary: 'Cảnh báo: Kiểm duyệt tài liệu'
+					}
+				},
+				'uw-own': {
+					level1: {
+						label: 'Sở hữu bài viết',
+						summary: 'Lưu ý chung: Sở hữu bài viết'
+					},
+					level2: {
+						label: 'Sở hữu bài viết',
+						summary: 'Cảnh báo: Sở hữu bài viết'
+					},
+					level3: {
+						label: 'Sở hữu bài viết',
+						summary: 'Cảnh báo: Sở hữu bài viết'
+					},
+					level4: {
+						label: 'Sở hữu bài viết',
+						summary: 'Cảnh báo cuối cùng: Sở hữu bài viết'
+					},
+					level4im: {
+						label: 'Sở hữu bài viết',
+						summary: 'Chỉ dùng để cảnh báo: Sở hữu bài viết'
+					}
+				},
+				'uw-tdel': {
+					level1: {
+						label: 'Xóa các bản mẫu bảo trì',
+						summary: 'Lưu ý chung: Xóa các bản mẫu bảo trì'
+					},
+					level2: {
+						label: 'Xóa các bản mẫu bảo trì',
+						summary: 'Cảnh báo: Xóa các bản mẫu bảo trì'
+					},
+					level3: {
+						label: 'Xóa các bản mẫu bảo trì',
+						summary: 'Cảnh báo: Xóa các bản mẫu bảo trì'
+					},
+					level4: {
+						label: 'Xóa các bản mẫu bảo trì',
+						summary: 'Cảnh báo cuối cùng: Xóa các bản mẫu bảo trì'
+					}
+				},
+				'uw-unsourced': {
+					level1: {
+						label: 'Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp',
+						summary: 'Lưu ý chung: Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp'
+					},
+					level2: {
+						label: 'Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp',
+						summary: 'Cảnh báo: Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp'
+					},
+					level3: {
+						label: 'Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp',
+						summary: 'Cảnh báo: Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp'
+					},
+					level4: {
+						label: 'Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp',
+						summary: 'Cảnh báo cuối cùng: Thêm tài liệu không có nguồn gốc hoặc được trích dẫn không thích hợp'
+					}
+				}
+			},
+			'Quảng cáo và thư rác': {
+				'uw-advert': {
+					level1: {
+						label: 'Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi',
+						summary: 'Lưu ý chung: Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi'
+					},
+					level2: {
+						label: 'Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi',
+						summary: 'Cảnh báo: Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi'
+					},
+					level3: {
+						label: 'Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi',
+						summary: 'Cảnh báo: Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi'
+					},
+					level4: {
+						label: 'Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi',
+						summary: 'Cảnh báo cuối cùng: Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi'
+					},
+					level4im: {
+						label: 'Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi',
+						summary: 'Chỉ dùng để cảnh báo: Sử dụng Wikipedia để quảng cáo hoặc khuyến mãi'
+					}
+				},
+				'uw-npov': {
+					level1: {
+						label: 'Không tuân theo quan điểm trung lập',
+						summary: 'Lưu ý chung: Không tuân theo quan điểm trung lập'
+					},
+					level2: {
+						label: 'Không tuân theo quan điểm trung lập',
+						summary: 'Cảnh báo: Không tuân theo quan điểm trung lập'
+					},
+					level3: {
+						label: 'Không tuân theo quan điểm trung lập',
+						summary: 'Cảnh báo: Không tuân theo quan điểm trung lập'
+					},
+					level4: {
+						label: 'Không tuân theo quan điểm trung lập',
+						summary: 'Cảnh báo cuối cùng: Không tuân theo quan điểm trung lập'
+					}
+				},
+				'uw-paid': {
+					level1: {
+						label: 'Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia',
+						summary: 'Lưu ý chung: Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia'
+					},
+					level2: {
+						label: 'Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia',
+						summary: 'Cảnh báo: Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia'
+					},
+					level3: {
+						label: 'Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia',
+						summary: 'Cảnh báo: Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia'
+					},
+					level4: {
+						label: 'Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia',
+						summary: 'Cảnh báo cuối cùng: Chỉnh sửa nhận thù lao mà không tiết lộ theo Điều khoản sử dụng của Wikimedia'
+					}
+				},
+				'uw-spam': {
+					level1: {
+						label: 'Thêm các liên kết bên ngoài không phù hợp',
+						summary: 'Lưu ý chung: Thêm các liên kết bên ngoài không phù hợp'
+					},
+					level2: {
+						label: 'Thêm liên kết rác',
+						summary: 'Cảnh báo: Thêm liên kết rác'
+					},
+					level3: {
+						label: 'Thêm liên kết rác',
+						summary: 'Cảnh báo: Thêm liên kết rác'
+					},
+					level4: {
+						label: 'Thêm liên kết rác',
+						summary: 'Cảnh báo cuối cùng: Thêm liên kết rác'
+					},
+					level4im: {
+						label: 'Thêm liên kết rác',
+						summary: 'Chỉ dùng để cảnh báo: Thêm liên kết rác'
+					}
+				}
+			},
+			'Hành vi đối với các biên tập viên khác': {
+				'uw-agf': {
+					level1: {
+						label: 'Không thiện chí',
+						summary: 'Lưu ý chung: Không thiện chí'
+					},
+					level2: {
+						label: 'Không thiện chí',
+						summary: 'Cảnh báo: Không thiện chí'
+					},
+					level3: {
+						label: 'Không thiện chí',
+						summary: 'Cảnh báo: Không thiện chí'
+					}
+				},
+				'uw-harass': {
+					level1: {
+						label: 'Quấy rối người dùng khác',
+						summary: 'Lưu ý chung: Quấy rối người dùng khác'
+					},
+					level2: {
+						label: 'Quấy rối người dùng khác',
+						summary: 'Cảnh báo: Quấy rối người dùng khác'
+					},
+					level3: {
+						label: 'Quấy rối người dùng khác',
+						summary: 'Cảnh báo: Quấy rối người dùng khác'
+					},
+					level4: {
+						label: 'Quấy rối người dùng khác',
+						summary: 'Cảnh báo cuối cùng: Quấy rối người dùng khác'
+					},
+					level4im: {
+						label: 'Quấy rối người dùng khác',
+						summary: 'Chỉ dùng để cảnh báo: Quấy rối người dùng khác'
+					}
+				},
+				'uw-npa': {
+					level1: {
+						label: 'Tấn công cá nhân nhắm vào một biên tập viên cụ thể',
+						summary: 'Lưu ý chung: Tấn công cá nhân nhắm vào một biên tập viên cụ thể'
+					},
+					level2: {
+						label: 'Tấn công cá nhân nhắm vào một biên tập viên cụ thể',
+						summary: 'Cảnh báo: Tấn công cá nhân nhắm vào một biên tập viên cụ thể'
+					},
+					level3: {
+						label: 'Tấn công cá nhân nhắm vào một biên tập viên cụ thể',
+						summary: 'Cảnh báo: Tấn công cá nhân nhắm vào một biên tập viên cụ thể'
+					},
+					level4: {
+						label: 'Tấn công cá nhân nhắm vào một biên tập viên cụ thể',
+						summary: 'Cảnh báo cuối cùng: Tấn công cá nhân nhắm vào một biên tập viên cụ thể'
+					},
+					level4im: {
+						label: 'Tấn công cá nhân nhắm vào một biên tập viên cụ thể',
+						summary: 'Chỉ dùng để cảnh báo: Tấn công cá nhân nhắm vào một biên tập viên cụ thể'
+					}
+				},
+				'uw-tempabuse': {
+					level1: {
+						label: 'Sử dụng không đúng bản mẫu cảnh báo hoặc bản mẫu cấm',
+						summary: 'Lưu ý chung: Sử dụng không đúng bản mẫu cảnh báo hoặc bản mẫu cấm'
+					},
+					level2: {
+						label: 'Sử dụng không đúng bản mẫu cảnh báo hoặc bản mẫu cấm',
+						summary: 'Cảnh báo: Sử dụng không đúng bản mẫu cảnh báo hoặc bản mẫu cấm'
+					}
+				}
+			},
+			'Xóa các thẻ xóa': {
+				'uw-afd': {
+					level1: {
+						label: 'Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)',
+						summary: 'Lưu ý chung: Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)'
+					},
+					level2: {
+						label: 'Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)',
+						summary: 'Cảnh báo: Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)'
+					},
+					level3: {
+						label: 'Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)',
+						summary: 'Cảnh báo: Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)'
+					},
+					level4: {
+						label: 'Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)',
+						summary: 'Cảnh báo cuối cùng: Xóa các bản mẫu {{afd}} (biểu quyết xóa bài)'
+					}
+				},
+				'uw-blpprod': {
+					level1: {
+						label: 'Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)',
+						summary: 'Lưu ý chung: Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)'
+					},
+					level2: {
+						label: 'Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)',
+						summary: 'Cảnh báo: Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)'
+					},
+					level3: {
+						label: 'Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)',
+						summary: 'Cảnh báo: Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)'
+					},
+					level4: {
+						label: 'Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)',
+						summary: 'Cảnh báo cuối cùng: Xóa các bản mẫu {{prod blp}} (đề nghị xóa tiểu sử người còn sống không nguồn)'
+					}
+				},
+				'uw-idt': {
+					level1: {
+						label: 'Xóa các thẻ xóa tập tin',
+						summary: 'Lưu ý chung: Xóa các thẻ xóa tập tin'
+					},
+					level2: {
+						label: 'Xóa các thẻ xóa tập tin',
+						summary: 'Cảnh báo: Xóa các thẻ xóa tập tin'
+					},
+					level3: {
+						label: 'Xóa các thẻ xóa tập tin',
+						summary: 'Cảnh báo: Xóa các thẻ xóa tập tin'
+					},
+					level4: {
+						label: 'Xóa các thẻ xóa tập tin',
+						summary: 'Cảnh báo cuối cùng: Xóa các thẻ xóa tập tin'
+					}
+				},
+				'uw-speedy': {
+					level1: {
+						label: 'Xóa các thẻ xóa nhanh',
+						summary: 'Lưu ý chung: Xóa các thẻ xóa nhanh'
+					},
+					level2: {
+						label: 'Xóa các thẻ xóa nhanh',
+						summary: 'Cảnh báo: Xóa các thẻ xóa nhanh'
+					},
+					level3: {
+						label: 'Xóa các thẻ xóa nhanh',
+						summary: 'Cảnh báo: Xóa các thẻ xóa nhanh'
+					},
+					level4: {
+						label: 'Xóa các thẻ xóa nhanh',
+						summary: 'Cảnh báo cuối cùng: Xóa các thẻ xóa nhanh'
+					}
+				}
+			},
+			'Hình ảnh, tập tin': {
+				'uw-ics': {
+					level1: {
+						label: 'Tải tập tin thiếu nguồn và giấy phép',
+						summary: 'Lưu ý chung: Tải tập tin thiếu nguồn và giấy phép'
+					},
+					level2: {
+						label: 'Tải tập tin thiếu nguồn và giấy phép',
+						summary: 'Cảnh báo: Tải tập tin thiếu nguồn và giấy phép'
+					},
+					level3: {
+						label: 'Tải tập tin thiếu nguồn và giấy phép',
+						summary: 'Cảnh báo: Tải tập tin thiếu nguồn và giấy phép'
+					},
+					level4: {
+						label: 'Tải tập tin thiếu nguồn và giấy phép',
+						summary: 'Cảnh báo cuối cùng: Tải tập tin thiếu nguồn và giấy phép'
+					},
+					level4im: {
+						label: 'Tải tập tin thiếu nguồn và giấy phép',
+						summary: 'Chỉ dùng để cảnh báo: Tải tập tin thiếu nguồn và giấy phép'
+					}
+				},
+				'uw-upload': {
+					level1: {
+						label: 'Tải hình ảnh không bách khoa',
+						summary: 'Lưu ý chung: Tải hình ảnh không bách khoa'
+					},
+					level2: {
+						label: 'Tải hình ảnh không bách khoa',
+						summary: 'Cảnh báo: Tải hình ảnh không bách khoa'
+					},
+					level3: {
+						label: 'Tải hình ảnh không bách khoa',
+						summary: 'Cảnh báo: Tải hình ảnh không bách khoa'
+					},
+					level4: {
+						label: 'Tải hình ảnh không bách khoa',
+						summary: 'Cảnh báo cuối cùng: Tải hình ảnh không bách khoa'
+					},
+					level4im: {
+						label: 'Tải hình ảnh không bách khoa',
+						summary: 'Chỉ dùng để cảnh báo: Tải hình ảnh không bách khoa'
+					}
+				}	
+			},
+			'Khác': {
+				//'uw-attempt': {
+				//	level1: {
+				//		label: 'Kích hoạt bộ lọc chỉnh sửa',
+				//		summary: 'Lưu ý chung: Kích hoạt bộ lọc chỉnh sửa'
+				//	},
+				//	level2: {
+				//		label: 'Kích hoạt bộ lọc chỉnh sửa',
+				//		summary: 'Cảnh báo: Kích hoạt bộ lọc chỉnh sửa'
+				//	},
+				//	level3: {
+				//		label: 'Kích hoạt bộ lọc chỉnh sửa',
+				//		summary: 'Cảnh báo: Kích hoạt bộ lọc chỉnh sửa'
+				//	},
+				//	level4: {
+				//		label: 'Kích hoạt bộ lọc chỉnh sửa',
+				//		summary: 'Cảnh báo cuối cùng: Kích hoạt bộ lọc chỉnh sửa'
+				//	}
+				//},
+				'uw-chat': {
+					level1: {
+						label: 'Biến trang thảo luận thành diễn đàn',
+						summary: 'Lưu ý chung: Biến trang thảo luận thành diễn đàn'
+					},
+					level2: {
+						label: 'Biến trang thảo luận thành diễn đàn',
+						summary: 'Cảnh báo: Biến trang thảo luận thành diễn đàn'
+					},
+					level3: {
+						label: 'Biến trang thảo luận thành diễn đàn',
+						summary: 'Cảnh báo: Biến trang thảo luận thành diễn đàn'
+					},
+					level4: {
+						label: 'Biến trang thảo luận thành diễn đàn',
+						summary: 'Cảnh báo cuối cùng: Biến trang thảo luận thành diễn đàn'
+					}
+				},
+				'uw-create': {
+					level1: {
+						label: 'Tạo các trang không hợp lệ',
+						summary: 'Lưu ý chung: Tạo các trang không hợp lệ'
+					},
+					level2: {
+						label: 'Tạo các trang không hợp lệ',
+						summary: 'Cảnh báo: Tạo các trang không hợp lệ'
+					},
+					level3: {
+						label: 'Tạo các trang không hợp lệ',
+						summary: 'Cảnh báo: Tạo các trang không hợp lệ'
+					},
+					level4: {
+						label: 'Tạo các trang không hợp lệ',
+						summary: 'Cảnh báo cuối cùng: Tạo các trang không hợp lệ'
+					},
+					level4im: {
+						label: 'Tạo các trang không hợp lệ',
+						summary: 'Chỉ dùng để cảnh báo: Tạo các trang không hợp lệ'
+					}
+				},
+				'uw-mos': {
+					level1: {
+						label: 'Cẩm nang biên soạn',
+						summary: 'Lưu ý chung: Định dạng, ngày tháng, ngôn ngữ, v.v. ( Phong cách thủ công)'
+					},
+					level2: {
+						label: 'Cẩm nang biên soạn',
+						summary: 'Cảnh báo: Định dạng, ngày tháng, ngôn ngữ, v.v. ( Phong cách thủ công)'
+					},
+					level3: {
+						label: 'Cẩm nang biên soạn',
+						summary: 'Cảnh báo: Định dạng, ngày tháng, ngôn ngữ, v.v. ( Phong cách thủ công)'
+					},
+					level4: {
+						label: 'Cẩm nang biên soạn',
+						summary: 'Cảnh báo cuối cùng: Định dạng, ngày tháng, ngôn ngữ, v.v. ( Phong cách thủ công)'
+					}
+				},
+				'uw-move': {
+					level1: {
+						label: 'Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận',
+						summary: 'Lưu ý chung: Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận'
+					},
+					level2: {
+						label: 'Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận',
+						summary: 'Cảnh báo: Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận'
+					},
+					level3: {
+						label: 'Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận',
+						summary: 'Cảnh báo: Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận'
+					},
+					level4: {
+						label: 'Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận',
+						summary: 'Cảnh báo cuối cùng: Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận'
+					},
+					level4im: {
+						label: 'Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận',
+						summary: 'Chỉ dùng để cảnh báo: Di chuyển trang trái với các quy ước đặt tên hoặc sự đồng thuận'
+					}
+				},
+				'uw-plotsum': {
+					level1: {
+						label: 'Khiến tóm lược cốt truyện dài dòng và tiểu tiết',
+						summary: 'Lưu ý chung: Khiến tóm lược cốt truyện dài dòng và tiểu tiết'
+					},
+					level2: {
+						label: 'Khiến tóm lược cốt truyện dài dòng và tiểu tiết',
+						summary: 'Lưu ý: Khiến tóm lược cốt truyện dài dòng và tiểu tiết'
+					},
+					level3: {
+						label: 'Khiến tóm lược cốt truyện dài dòng và tiểu tiết',
+						summary: 'Lưu ý: Khiến tóm lược cốt truyện dài dòng và tiểu tiết'
+					},
+				},
+				'uw-tpv': {
+					level1: {
+						label: 'Phá hoại hay xóa thảo luận của người khác',
+						summary: 'Lưu ý chung: Phá hoại hay xóa thảo luận của người khác'
+					},
+					level2: {
+						label: 'Phá hoại hay xóa thảo luận của người khác',
+						summary: 'Lưu ý: Phá hoại hay xóa thảo luận của người khác'
+					},
+					level3: {
+						label: 'Phá hoại hay xóa thảo luận của người khác',
+						summary: 'Cảnh báo: Phá hoại hay xóa thảo luận của người khác'
+					},
+					level4: {
+						label: 'Phá hoại hay xóa thảo luận của người khác',
+						summary: 'Cảnh báo cuối cùng: Phá hoại hay xóa thảo luận của người khác'
+					},
+					level4im: {
+						label: 'Phá hoại hay xóa thảo luận của người khác',
+						summary: 'Chỉ dùng để cảnh báo: Phá hoại hay xóa thảo luận của người khác'
+					}
+				},
 			}
-			if( current_date > latest.date ) {
-				latest.date = current_date;
-				latest.type = current[1];
+		},
+	
+		singlenotice: {
+			'uw-aiv': {
+				label: 'Báo cáo AIV không hợp lệ',
+				summary: 'Thông báo: Bad AIV report'
+			},
+			'uw-autobiography': {
+				label: 'Tạo tự truyện',
+				summary: 'Thông báo: Tạo tự truyện'
+			},
+			'uw-badcat': {
+				label: 'Thêm thể loại không chính xác',
+				summary: 'Thông báo: Thêm thể loại không chính xác'
+			},
+			'uw-badlistentry': {
+				label: 'Thêm các mục không phù hợp vào danh sách',
+				summary: 'Thông báo: Thêm các mục không phù hợp vào danh sách'
+			},
+			'uw-bite': {
+				label: '"Cắn" người mới đến',
+				summary: 'Thông báo: "Cắn" người mới đến',
+				suppressArticleInSummary: true  // non-standard (user name, not article), and not necessary
+			},
+			'uw-coi': {
+				label: 'Xung đột lợi ích',
+				summary: 'Thông báo: Xung đột lợi ích',
+				heading: 'Xung đột lợi ích'
+			},
+			'uw-controversial': {
+				label: 'Sửa đổi gây tranh cãi',
+				summary: 'Thông báo: Sửa đổi gây tranh cãi'
+			},
+			//'uw-copying': {
+			//	label: 'Sao chép văn bản sang trang khác',
+			//	summary: 'Thông báo: Sao chép văn bản sang trang khác'
+			//},
+			//'uw-crystal': {
+			//	label: 'Thêm thông tin suy đoán hoặc chưa được xác nhận',
+			//	summary: 'Thông báo: Thêm thông tin suy đoán hoặc chưa được xác nhận'
+			//},
+			//'uw-c&pmove': {
+			//	label: 'Cắt và dán nội dung sang nhiều trang',
+			//	summary: 'Thông báo: Cắt và dán nội dung sang nhiều trang'
+			//},
+			//'uw-dab': {
+			//	label: 'Chỉnh sửa không chính xác cho một trang định hướng',
+			//	summary: 'Thông báo: Chỉnh sửa không chính xác cho một trang định hướng'
+			//},
+			//'uw-date': {
+			//	label: 'Thay đổi định dạng ngày không cần thiết',
+			//	summary: 'Thông báo: Thay đổi định dạng ngày không cần thiết'
+			//},
+			//'uw-deadlink': {
+			//	label: 'Loại bỏ các nguồn thích hợp có chứa các liên kết chết',
+			//	summary: 'Thông báo: Loại bỏ các nguồn thích hợp có chứa các liên kết chết'
+			//},
+			//'uw-draftfirst': {
+			//	label: 'Người dùng nên nháp trong không gian người dùng của mình để tránh bị xóa nhanh nội dung',
+			//	summary: 'Thông báo: Hãy soạn bài trong nháp theo hướng dẫn [[Wikipedia:Giới thiệu chỗ thử]]'
+			//},
+			'uw-editsummary': {
+				label: 'Thiếu tóm lược sửa đổi',
+				summary: 'Thông báo: Thiếu tóm lược sửa đổi'
+			},
+			'uw-elinbody': {
+				label: 'Thêm liên kết ngoài vào thân bài',
+				summary: 'Thông báo: Để các liên kết ngoài tại phần Liên kết ngoài ở cuối bài'
+			},
+			'uw-vietnamese': {
+				label: 'Không giao tiếp bằng tiếng Việt',
+				summary: 'Thông báo: Không giao tiếp bằng tiếng Việt'
+			},
+			'uw-hasty': {
+				label: 'Thêm các thẻ xóa quá nhanh',
+				summary: 'Thông báo: Cho phép người tạo bài có thời gian để cải thiện bài viết trước khi gắn thẻ xóa bài'
+			},
+			'uw-italicize': {
+				label: 'In nghiêng sách, phim, album, tạp chí, phim truyền hình, v.v. trong các bài viết',
+				summary: 'Thông báo: Hãy in nghiêng sách, phim, album, tạp chí, phim truyền hình, v.v. trong các bài viết'
+			},
+			'uw-lang': {
+				label: 'Không cần phải thay đổi giữa tiếng Việt miền Bắc và tiếng Việt miền Nam',
+				summary: 'Thông báo: Không cần phải thay đổi giữa tiếng Việt miền Bắc và tiếng Việt miền Nam',
+				heading: 'Các địa phương sử dụng tiếng Việt'
+			},
+			'uw-linking': {
+				label: 'Thêm quá nhiều liên kết đỏ hoặc liên kết xanh lặp lại',
+				summary: 'Thông báo: Thêm quá nhiều liên kết đỏ hoặc liên kết xanh lặp lại'
+			},
+			'uw-minor': {
+				label: 'Sử dụng sai hộp kiểm tra các chỉnh sửa nhỏ',
+				summary: 'Thông báo: Sử dụng sai hộp kiểm tra các chỉnh sửa nhỏ'
+			},
+			'uw-notvietnamese': {
+				label: 'Tạo các bài viết không phải tiếng Việt',
+				summary: 'Thông báo: Tạo các bài viết không phải tiếng Việt'
+			},
+			'uw-notvote': {
+				label: 'Chúng tôi xét đồng thuận chứ không đếm phiếu',
+				summary: 'Thông báo: Chúng tôi xét đồng thuận chứ không đếm phiếu'
+			},
+			'uw-plagiarism': {
+				label: 'Sao chép từ các nguồn từ phạm vi công cộng mà không cần ghi công',
+				summary: 'Thông báo: Sao chép từ các nguồn từ phạm vi công cộng mà không cần ghi công'
+			},
+			'uw-preview': {
+				label: 'Sử dụng nút xem trước để tránh nhầm lẫn',
+				summary: 'Thông báo: Sử dụng nút xem trước để tránh nhầm lẫn'
+			},
+			'uw-redlink': {
+				label: 'Xóa liên kết đỏ bừa bãi',
+				summary: 'Thông báo: Xóa liên kết đỏ bừa bãi'
+			},
+			'uw-selfrevert': {
+				label: 'Tự thử nghiệm lùi lại quá mức',
+				summary: 'Thông báo: Tự thử nghiệm lùi lại quá mức'
+			},
+			'uw-socialnetwork': {
+				label: 'Wikipedia không phải là một mạng xã hội',
+				summary: 'Thông báo: Wikipedia không phải là một mạng xã hội'
+			},
+			'uw-sofixit': {
+				label: 'Hãy mạnh dạn và tự sửa chữa mọi thứ',
+				summary: 'Thông báo: Hãy mạnh dạn và tự sửa chữa mọi thứ'
+			},
+			//'uw-spoiler': {
+				//label: 'Thêm cảnh báo kẻ phá hoại hoặc xóa kẻ phá rối khỏi các phần thích hợp',
+				//summary: "Notice: Không xóa hoặc gắn cờ 'kẻ phá hoại' tiềm năng trong các bài viết trên Wikipedia"
+			//},
+			'uw-talkinarticle': {
+				label: 'Thảo luận trong bài viết',
+				summary: 'Thông báo: Thảo luận trong bài viết'
+			},
+			'uw-taxonomy1': {
+				label: 'Sửa đổi khiến cho bản mẫu phân loại sinh vật bị lỗi',
+				summary: 'Thông báo: Sửa đổi khiến cho bản mẫu phân loại sinh vật bị lỗi'
+			},
+			'uw-tilde': {
+				label: 'Đăng nội dung (thảo luận) không ký tên',
+				summary: 'Thông báo: Đăng nội dung (thảo luận) không ký tên'
+			},
+			'uw-toppost': {
+				label: 'Đăng ở đầu các trang thảo luận',
+				summary: 'Thông báo: Đăng ở đầu các trang thảo luận'
+			},
+			'uw-userspace draft finish': {
+				label: 'Bản nháp không gian người dùng cũ',
+				summary: 'Thông báo: Bản nháp không gian người dùng cũ'
+			},
+			'uw-vgscope': {
+				label: 'Thêm hướng dẫn cách chơi trò chơi điện tử, mẹo gian lận hoặc chỉ dẫn',
+				summary: 'Thông báo: Thêm hướng dẫn cách chơi trò chơi điện tử, mẹo gian lận hoặc chỉ dẫn'
+			},
+			'uw-warn': {
+				label: 'Đặt các bản mẫu cảnh báo người dùng khi lùi lại hành vi phá hoại',
+				summary: 'Thông báo: Bạn có thể sử dụng các bản mẫu cảnh báo người dùng khi lùi lại hành vi phá hoại'
+			},
+			//'uw-wrongsummary': {
+			//	label: 'Viết tóm lược sửa đổi không chính xác hoặc không phù hợp',
+			//	summary: 'Cảnh báo: Viết tóm lược sửa đổi không chính xác hoặc không phù hợp'
+			//}
+		},
+	
+		singlewarn: {
+			'uw-3rr': {
+				label: 'Vi phạm quy tắc ba lần hồi sửa; Xem thêm uw-ew',
+				summary: 'Cảnh báo: ba lần hồi sửa'
+			},
+			'uw-affiliate': {
+				label: 'Tiếp thị liên kết',
+				summary: 'Cảnh báo: Tiếp thị liên kết'
+			},
+			'uw-agf-sock': {
+				label: 'Sử dụng nhiều tài khoản (giả sử có thiện chí)',
+				summary: 'Cảnh báo: Sử dụng nhiều tài khoản'
+			},
+			'uw-attack': {
+				label: 'Tạo các trang tấn công',
+				summary: 'Cảnh báo: Tạo các trang tấn công',
+				suppressArticleInSummary: true
+			},
+			'uw-botun': {
+				label: 'Tên người dùng bot',
+				summary: 'Cảnh báo: Tên người dùng bot'
+			},
+			'uw-canvass': {
+				label: 'Vận động',
+				summary: 'Cảnh báo: Vận động'
+			},
+			'uw-copyright': {
+				label: 'Vi phạm bản quyền',
+				summary: 'Cảnh báo: Vi phạm bản quyền'
+			},
+			'uw-copyright-link': {
+				label: 'Liên kết đến các vi phạm tác phẩm có bản quyền',
+				summary: 'Cảnh báo: Liên kết đến các vi phạm tác phẩm có bản quyền'
+			},
+			//'uw-copyright-new': {
+			//	label: 'Vi phạm bản quyền (có giải thích cho người dùng mới)',
+			//	summary: 'Thông báo: Tránh các vấn đề về bản quyền',
+			//	heading: 'Wikipedia và bản quyền'
+			//},
+			//'uw-copyright-remove': {
+			//	label: 'Xóa các bản mẫu {{vi phạm bản quyền}} khỏi bài viết',
+			//	summary: 'Cảnh báo: Xóa các bản mẫu {{vi phạm bản quyền}} khỏi bài viết'
+			//},
+			'uw-efsummary': {
+				label: 'Tóm lược sửa đổi kích hoạt bộ lọc chỉnh sửa',
+				summary: 'Cảnh báo: Tóm lược sửa đổi kích hoạt bộ lọc chỉnh sửa'
+			},
+			//'uw-ew': {
+			//	label: 'Bút chiến (diễn đạt mức độ mạnh)',
+			//	summary: 'Cảnh báo: Bút chiến'
+			//},
+			'uw-ewsoft': {
+				label: 'Bút chiến (diễn đạt mức độ nhẹ với người mới)',
+				summary: 'Cảnh báo: Bút chiến'
+			},
+			//'uw-hijacking': {
+			//	label: 'Bài viết bị chiếm đoạt',
+			//	summary: 'Cảnh báo: Bài viết bị chiếm đoạt'
+			//},
+			'uw-hoax': {
+				label: 'Tạo trò lừa bịp',
+				summary: 'Cảnh báo: Tạo trò lừa bịp'
+			},
+			'uw-legal': {
+				label: 'Đe dọa pháp lý',
+				summary: 'Cảnh báo: Đe dọa pháp lý'
+			},
+			'uw-login': {
+				label: 'Chỉnh sửa khi đăng xuất',
+				summary: 'Cảnh báo: Chỉnh sửa khi đăng xuất'
+			},
+			'uw-multipleIPs': {
+				label: 'Sử dụng nhiều IP',
+				summary: 'Cảnh báo: Phá hoại với nhiều IP'
+			},
+			'uw-pinfo': {
+				label: 'Đăng thông tin cá nhân (của người khác)',
+				summary: 'Cảnh báo: Thông tin cá nhân'
+			},
+			'uw-salt': {
+				label: 'Tạo lại các bài bị khóa khởi tạo dưới một tiêu đề khác',
+				summary: 'Thông báo: Tạo lại các bài bị khóa khởi tạo dưới một tiêu đề khác'
+			},
+			'uw-socksuspect': {
+				label: 'Con rối',
+				summary: 'Cảnh báo: Bạn là một người bị nghi ngờ [[Wikipedia:Tài khoản con rối]]'  // of User:...
+			},
+			'uw-upv': {
+				label: 'Phá hoại trang thành viên',
+				summary: 'Cảnh báo: Phá hoại trang thành viên'
+			},
+			'uw-username': {
+				label: 'Tên người dùng vi phạm quy định (nên ghi lý do)',
+				summary: 'Cảnh báo: Tên người dùng vi phạm quy định',
+				suppressArticleInSummary: true  // not relevant for this template
+			},
+			'uw-coi-username': {
+				label: 'Tên người dùng vi phạm quy định và xung đột lợi ích',
+				summary: 'Cảnh báo: Tên người dùng vi phạm quy định và xung đột lợi ích',
+				heading: 'Tên người dùng của bạn'
+			},
+			'uw-userpage': {
+				label: 'Trang người dùng hoặc trang con vi phạm quy định',
+				summary: 'Cảnh báo: Trang người dùng hoặc trang con vi phạm quy định'
 			}
 		}
-
-		var date = new Date();
-
-		if( params.sub_group in history ) {
-			var temp_time = new Date( history[ params.sub_group ] );
-			temp_time.setUTCHours( temp_time.getUTCHours() + 24 );
-
-			if( temp_time > date ) {
-				if( !confirm( "An identical " + params.sub_group + " has been issued in the last 24 hours.  \nWould you still like to add this warning/notice?" ) ) {
-					pageobj.statelem.info( 'aborted per user request' );
+	};
+	
+	// Used repeatedly below across menu rebuilds
+	Twinkle.warn.prev_article = null;
+	Twinkle.warn.prev_reason = null;
+	Twinkle.warn.talkpageObj = null;
+	
+	Twinkle.warn.callback.change_category = function twinklewarnCallbackChangeCategory(e) {
+		var value = e.target.value;
+		var sub_group = e.target.root.sub_group;
+		sub_group.main_group = value;
+		var old_subvalue = sub_group.value;
+		var old_subvalue_re;
+		if (old_subvalue) {
+			if (value === 'kitchensink') { // Exact match possible in kitchensink menu
+				old_subvalue_re = new RegExp(mw.util.escapeRegExp(old_subvalue));
+			} else {
+				old_subvalue = old_subvalue.replace(/\d*(im)?$/, '');
+				old_subvalue_re = new RegExp(mw.util.escapeRegExp(old_subvalue) + '(\\d*(?:im)?)$');
+			}
+		}
+	
+		while (sub_group.hasChildNodes()) {
+			sub_group.removeChild(sub_group.firstChild);
+		}
+	
+		var selected = false;
+		// worker function to create the combo box entries
+		var createEntries = function(contents, container, wrapInOptgroup, val) {
+			val = typeof val !== 'undefined' ? val : value; // IE doesn't support default parameters
+			// level2->2, singlewarn->''; also used to distinguish the
+			// scaled levels from singlenotice, singlewarn, and custom
+			var level = val.replace(/^\D+/g, '');
+			// due to an apparent iOS bug, we have to add an option-group to prevent truncation of text
+			// (search WT:TW archives for "Problem selecting warnings on an iPhone")
+			if (wrapInOptgroup && $.client.profile().platform === 'iphone') {
+				var wrapperOptgroup = new Morebits.quickForm.element({
+					type: 'optgroup',
+					label: 'Các bản mẫu có sẵn'
+				});
+				wrapperOptgroup = wrapperOptgroup.render();
+				container.appendChild(wrapperOptgroup);
+				container = wrapperOptgroup;
+			}
+	
+			$.each(contents, function(itemKey, itemProperties) {
+				// Skip if the current template doesn't have a version for the current level
+				if (!!level && !itemProperties[val]) {
+					return;
+				}
+				var key = typeof itemKey === 'string' ? itemKey : itemProperties.value;
+				var template = key + level;
+	
+				var elem = new Morebits.quickForm.element({
+					type: 'option',
+					label: '{{' + template + '}}: ' + (level ? itemProperties[val].label : itemProperties.label),
+					value: template
+				});
+	
+				// Select item best corresponding to previous selection
+				if (!selected && old_subvalue && old_subvalue_re.test(template)) {
+					elem.data.selected = selected = true;
+				}
+				var elemRendered = container.appendChild(elem.render());
+				$(elemRendered).data('messageData', itemProperties);
+			});
+		};
+	
+		switch (value) {
+			case 'singlenotice':
+			case 'singlewarn':
+				createEntries(Twinkle.warn.messages[value], sub_group, true);
+				break;
+			case 'singlecombined':
+				var unSortedSinglets = $.extend({}, Twinkle.warn.messages.singlenotice, Twinkle.warn.messages.singlewarn);
+				var sortedSingletMessages = {};
+				Object.keys(unSortedSinglets).sort().forEach(function(key) {
+					sortedSingletMessages[key] = unSortedSinglets[key];
+				});
+				createEntries(sortedSingletMessages, sub_group, true);
+				break;
+			case 'custom':
+				createEntries(Twinkle.getPref('customWarningList'), sub_group, true);
+				break;
+			case 'kitchensink':
+				['level1', 'level2', 'level3', 'level4', 'level4im'].forEach(function(lvl) {
+					$.each(Twinkle.warn.messages.levels, function(_, levelGroup) {
+						createEntries(levelGroup, sub_group, true, lvl);
+					});
+				});
+				createEntries(Twinkle.warn.messages.singlenotice, sub_group, true);
+				createEntries(Twinkle.warn.messages.singlewarn, sub_group, true);
+				createEntries(Twinkle.getPref('customWarningList'), sub_group, true);
+				break;
+			case 'level1':
+			case 'level2':
+			case 'level3':
+			case 'level4':
+			case 'level4im':
+				// Creates subgroup regardless of whether there is anything to place in it;
+				// leaves "Removal of deletion tags" empty for 4im
+				$.each(Twinkle.warn.messages.levels, function(groupLabel, groupContents) {
+					var optgroup = new Morebits.quickForm.element({
+						type: 'optgroup',
+						label: groupLabel
+					});
+					optgroup = optgroup.render();
+					sub_group.appendChild(optgroup);
+					// create the options
+					createEntries(groupContents, optgroup, false);
+				});
+				break;
+			case 'autolevel':
+				// Check user page to determine appropriate level
+				var autolevelProc = function() {
+					var wikitext = Twinkle.warn.talkpageObj.getPageText();
+					// history not needed for autolevel
+					var latest = Twinkle.warn.callbacks.dateProcessing(wikitext)[0];
+					// Pseudo-params with only what's needed to parse the level i.e. no messageData
+					var params = {
+						sub_group: old_subvalue,
+						article: e.target.root.article.value
+					};
+					var lvl = 'level' + Twinkle.warn.callbacks.autolevelParseWikitext(wikitext, params, latest)[1];
+	
+					// Identical to level1, etc. above but explicitly provides the level
+					$.each(Twinkle.warn.messages.levels, function(groupLabel, groupContents) {
+						var optgroup = new Morebits.quickForm.element({
+							type: 'optgroup',
+							label: groupLabel
+						});
+						optgroup = optgroup.render();
+						sub_group.appendChild(optgroup);
+						// create the options
+						createEntries(groupContents, optgroup, false, lvl);
+					});
+	
+					// Trigger subcategory change, add select menu, etc.
+					Twinkle.warn.callback.postCategoryCleanup(e);
+				};
+	
+	
+				if (Twinkle.warn.talkpageObj) {
+					autolevelProc();
+				} else {
+					var usertalk_page = new Morebits.wiki.page('User_talk:' + mw.config.get('wgRelevantUserName'), 'Loading previous warnings');
+					usertalk_page.setFollowRedirect(true, false);
+					usertalk_page.load(function(pageobj) {
+						Twinkle.warn.talkpageObj = pageobj; // Update talkpageObj
+						autolevelProc();
+					}, function() {
+						// Catch and warn if the talkpage can't load,
+						// most likely because it's a cross-namespace redirect
+						// Supersedes the typical $autolevelMessage added in autolevelParseWikitext
+						var $noTalkPageNode = $('<strong/>', {
+							'text': 'Không thể tải trang thảo luận của người dùng; nó có thể là một chuyển hướng giữa nhiều không gian tên. Phát hiện cấp độ tự động sẽ không hoạt động.',
+							'id': 'twinkle-warn-autolevel-message',
+							'css': {'color': 'red' }
+						});
+						$noTalkPageNode.insertBefore($('#twinkle-warn-warning-messages'));
+						// If a preview was opened while in a different mode, close it
+						// Should nullify the need to catch the error in preview callback
+						e.target.root.previewer.closePreview();
+					});
+				}
+				break;
+			default:
+				alert('Nhóm cảnh báo không xác định rõ trong twinklewarn');
+				break;
+		}
+	
+		// Trigger subcategory change, add select menu, etc.
+		// Here because of the async load for autolevel
+		if (value !== 'autolevel') {
+			// reset any autolevel-specific messages while we're here
+			$('#twinkle-warn-autolevel-message').remove();
+	
+			Twinkle.warn.callback.postCategoryCleanup(e);
+		}
+	};
+	
+	Twinkle.warn.callback.postCategoryCleanup = function twinklewarnCallbackPostCategoryCleanup(e) {
+		// clear overridden label on article textbox
+		Morebits.quickForm.setElementTooltipVisibility(e.target.root.article, true);
+		Morebits.quickForm.resetElementLabel(e.target.root.article);
+		// Trigger custom label/change on main category change
+		Twinkle.warn.callback.change_subcategory(e);
+	
+		// Use select2 to make the select menu searchable
+		if (!Twinkle.getPref('oldSelect')) {
+			$('select[name=sub_group]')
+				.select2({
+					width: '100%',
+					matcher: Morebits.select2.matchers.optgroupFull,
+					templateResult: Morebits.select2.highlightSearchMatches,
+					language: {
+						searching: Morebits.select2.queryInterceptor
+					}
+				})
+				.change(Twinkle.warn.callback.change_subcategory);
+	
+			$('.select2-selection').keydown(Morebits.select2.autoStart).focus();
+	
+			mw.util.addCSS(
+				// Increase height
+				'.select2-container .select2-dropdown .select2-results > .select2-results__options { max-height: 350px; }' +
+	
+				// Reduce padding
+				'.select2-results .select2-results__option { padding-top: 1px; padding-bottom: 1px; }' +
+				'.select2-results .select2-results__group { padding-top: 1px; padding-bottom: 1px; } ' +
+	
+				// Adjust font size
+				'.select2-container .select2-dropdown .select2-results { font-size: 13px; }' +
+				'.select2-container .selection .select2-selection__rendered { font-size: 13px; }'
+			);
+		}
+	};
+	
+	Twinkle.warn.callback.change_subcategory = function twinklewarnCallbackChangeSubcategory(e) {
+		var main_group = e.target.form.main_group.value;
+		var value = e.target.form.sub_group.value;
+	
+		// Tags that don't take a linked article, but something else (often a username).
+		// The value of each tag is the label next to the input field
+		var notLinkedArticle = {
+			'uw-agf-sock': 'Tên người dùng tùy chọn của tài khoản khác (không có User:) ',
+			'uw-bite': "Tên người dùng của người dùng 'bị cắn' (không có User:) ",
+			'uw-socksuspect': 'Tên người dùng của chủ rối, nếu biết (không có User:) ',
+			'uw-username': 'Tên người dùng vi phạm chính sách vì... ',
+			'uw-aiv': 'Tên người dùng tùy chọn đã được báo cáo (không có User:) '
+		};
+	
+		if (['singlenotice', 'singlewarn', 'singlecombined', 'kitchensink'].indexOf(main_group) !== -1) {
+			if (notLinkedArticle[value]) {
+				if (Twinkle.warn.prev_article === null) {
+					Twinkle.warn.prev_article = e.target.form.article.value;
+				}
+				e.target.form.article.notArticle = true;
+				e.target.form.article.value = '';
+	
+				// change form labels according to the warning selected
+				Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, false);
+				Morebits.quickForm.overrideElementLabel(e.target.form.article, notLinkedArticle[value]);
+			} else if (e.target.form.article.notArticle) {
+				if (Twinkle.warn.prev_article !== null) {
+					e.target.form.article.value = Twinkle.warn.prev_article;
+					Twinkle.warn.prev_article = null;
+				}
+				e.target.form.article.notArticle = false;
+				Morebits.quickForm.setElementTooltipVisibility(e.target.form.article, true);
+				Morebits.quickForm.resetElementLabel(e.target.form.article);
+			}
+		}
+	
+		// add big red notice, warning users about how to use {{uw-[coi-]username}} appropriately
+		$('#tw-warn-red-notice').remove();
+		var $redWarning;
+		if (value === 'uw-username') {
+			$redWarning = $("<div style='color: red;' id='tw-warn-red-notice'>{{uw-username}} should <b>not</b> be used for <b>blatant</b> username policy violations. " +
+				"Blatant violations should be reported directly to UAA (via Twinkle's ARV tab). " +
+				'{{uw-username}} should only be used in edge cases in order to engage in discussion with the user.</div>');
+			$redWarning.insertAfter(Morebits.quickForm.getElementLabelObject(e.target.form.reasonGroup));
+		} else if (value === 'uw-coi-username') {
+			$redWarning = $("<div style='color: red;' id='tw-warn-red-notice'>{{uw-coi-username}} should <b>not</b> be used for <b>blatant</b> username policy violations. " +
+				"Blatant violations should be reported directly to UAA (via Twinkle's ARV tab). " +
+				'{{uw-coi-username}} should only be used in edge cases in order to engage in discussion with the user.</div>');
+			$redWarning.insertAfter(Morebits.quickForm.getElementLabelObject(e.target.form.reasonGroup));
+		}
+	};
+	
+	Twinkle.warn.callbacks = {
+		getWarningWikitext: function(templateName, article, reason, isCustom) {
+			var text = '{{subst:' + templateName;
+	
+			// add linked article for user warnings
+			if (article) {
+				// c&pmove has the source as the first parameter
+				if (templateName === 'uw-c&pmove') {
+					text += '|to=' + article;
+				} else {
+					text += '|1=' + article;
+				}
+			}
+			if (reason && !isCustom) {
+				// add extra message
+				if (templateName === 'uw-csd' || templateName === 'uw-probation' ||
+					templateName === 'uw-userspacenoindex' || templateName === 'uw-userpage') {
+					text += "|3=''" + reason + "''";
+				} else {
+					text += "|2=''" + reason + "''";
+				}
+			}
+			text += '}}';
+	
+			if (reason && isCustom) {
+				// we assume that custom warnings lack a {{{2}}} parameter
+				text += " ''" + reason + "''";
+			}
+	
+			return text + ' ~~~~';
+		},
+		showPreview: function(form, templatename) {
+			var input = Morebits.quickForm.getInputData(form);
+			// Provided on autolevel, not otherwise
+			templatename = templatename || input.sub_group;
+			var linkedarticle = input.article;
+			var templatetext;
+	
+			templatetext = Twinkle.warn.callbacks.getWarningWikitext(templatename, linkedarticle,
+				input.reason, input.main_group === 'custom');
+	
+			form.previewer.beginRender(templatetext, 'User_talk:' + mw.config.get('wgRelevantUserName')); // Force wikitext/correct username
+		},
+		// Just a pass-through unless the autolevel option was selected
+		preview: function(form) {
+			if (form.main_group.value === 'autolevel') {
+				// Always get a new, updated talkpage for autolevel processing
+				var usertalk_page = new Morebits.wiki.page('User_talk:' + mw.config.get('wgRelevantUserName'), 'Đang tải các cảnh báo trước đó');
+				usertalk_page.setFollowRedirect(true, false);
+				// Will fail silently if the talk page is a cross-ns redirect,
+				// removal of the preview box handled when loading the menu
+				usertalk_page.load(function(pageobj) {
+					Twinkle.warn.talkpageObj = pageobj; // Update talkpageObj
+	
+					var wikitext = pageobj.getPageText();
+					// history not needed for autolevel
+					var latest = Twinkle.warn.callbacks.dateProcessing(wikitext)[0];
+					var params = {
+						sub_group: form.sub_group.value,
+						article: form.article.value,
+						messageData: $(form.sub_group).find('option[value="' + $(form.sub_group).val() + '"]').data('messageData')
+					};
+					var template = Twinkle.warn.callbacks.autolevelParseWikitext(wikitext, params, latest)[0];
+					Twinkle.warn.callbacks.showPreview(form, template);
+	
+					// If the templates have diverged, fake a change event
+					// to reload the menu with the updated pageobj
+					if (form.sub_group.value !== template) {
+						var evt = document.createEvent('Event');
+						evt.initEvent('change', true, true);
+						form.main_group.dispatchEvent(evt);
+					}
+				});
+			} else {
+				Twinkle.warn.callbacks.showPreview(form);
+			}
+		},
+		/**
+		* Used in the main and autolevel loops to determine when to warn
+		* about excessively recent, stale, or identical warnings.
+		* @param {string} wikitext  The text of a user's talk page, from getPageText()
+		* @returns {Object[]} - Array of objects: latest contains most recent
+		* warning and date; history lists all prior warnings
+		*/
+		dateProcessing: function(wikitext) {
+			var history_re = /<!--\s?Template:([uU]w-.*?)\s?-->.*?(\d{1,2}:\d{1,2}, \d{1,2} \w+ \d{4} \(UTC\))/g;
+			var history = {};
+			var latest = { date: new Morebits.date(0), type: '' };
+			var current;
+	
+			while ((current = history_re.exec(wikitext)) !== null) {
+				var template = current[1], current_date = new Morebits.date(current[2]);
+				if (!(template in history) || history[template].isBefore(current_date)) {
+					history[template] = current_date;
+				}
+				if (!latest.date.isAfter(current_date)) {
+					latest.date = current_date;
+					latest.type = template;
+				}
+			}
+			return [latest, history];
+		},
+		/**
+		* Main loop for deciding what the level should increment to. Most of
+		* this is really just error catching and updating the subsequent data.
+		* May produce up to two notices in a twinkle-warn-autolevel-messages div
+		*
+		* @param {string} wikitext  The text of a user's talk page, from getPageText() (required)
+		* @param {Object} params  Params object: sub_group is the template (required);
+		* article is the user-provided article (form.article) used to link ARV on recent level4 warnings;
+		* messageData is only necessary if getting the full template, as it's
+		* used to ensure a valid template of that level exists
+		* @param {Object} latest  First element of the array returned from
+		* dateProcessing. Provided here rather than processed within to avoid
+		* repeated call to dateProcessing
+		* @param {(Date|Morebits.date)} date  Date from which staleness is determined
+		* @param {Morebits.status} statelem  Status element, only used for handling error in final execution
+		*
+		* @returns {Array} - Array that contains the full template and just the warning level
+		*/
+		autolevelParseWikitext: function(wikitext, params, latest, date, statelem) {
+			var level; // undefined rather than '' means the isNaN below will return true
+			if (/\d(?:im)?$/.test(latest.type)) { // level1-4im
+				level = parseInt(latest.type.replace(/.*(\d)(?:im)?$/, '$1'), 10);
+			} else if (latest.type) { // Non-numbered warning
+				// Try to leverage existing categorization of
+				// warnings, all but one are universally lowercased
+				var loweredType = /uw-multipleIPs/i.test(latest.type) ? 'uw-multipleIPs' : latest.type.toLowerCase();
+				// It would be nice to account for blocks, but in most
+				// cases the hidden message is terminal, not the sig
+				if (Twinkle.warn.messages.singlewarn[loweredType]) {
+					level = 3;
+				} else {
+					level = 1; // singlenotice or not found
+				}
+			}
+	
+			var $autolevelMessage = $('<div/>', {'id': 'twinkle-warn-autolevel-message'});
+	
+			if (isNaN(level)) { // No prior warnings found, this is the first
+				level = 1;
+			} else if (level > 4 || level < 1) { // Shouldn't happen
+				var message = 'Không thể xác định mức cảnh báo trước đó, vui lòng chọn mức cảnh báo theo cách thủ công.';
+				if (statelem) {
+					statelem.error(message);
+				} else {
+					alert(message);
+				}
+				return;
+			} else {
+				date = date || new Date();
+				var autoTimeout = new Morebits.date(latest.date.getTime()).add(parseInt(Twinkle.getPref('autolevelStaleDays'), 10), 'days');
+				if (autoTimeout.isAfter(date)) {
+					if (level === 4) {
+						level = 4;
+						// Basically indicates whether we're in the final Main evaluation or not,
+						// and thus whether we can continue or need to display the warning and link
+						if (!statelem) {
+							var $link = $('<a/>', {
+								'href': '#',
+								'text': 'click here to open the ARV tool.',
+								'css': { 'fontWeight': 'bold' },
+								'click': function() {
+									Morebits.wiki.actionCompleted.redirect = null;
+									Twinkle.warn.dialog.close();
+									Twinkle.arv.callback(mw.config.get('wgRelevantUserName'));
+									$('input[name=page]').val(params.article); // Target page
+									$('input[value=final]').prop('checked', true); // Vandalism after final
+								}
+							});
+							var statusNode = $('<div/>', {
+								'text': mw.config.get('wgRelevantUserName') + ' gần đây đã nhận được cảnh báo cấp độ 4 (' + latest.type + ') vì vậy có thể tốt hơn nếu báo cáo người này với quản trị viên; ',
+								'css': {'color': 'red' }
+							});
+							statusNode.append($link[0]);
+							$autolevelMessage.append(statusNode);
+						}
+					} else { // Automatically increase severity
+						level += 1;
+					}
+				} else { // Reset warning level if most-recent warning is too old
+					level = 1;
+				}
+			}
+	
+			$autolevelMessage.prepend($('<div>Sẽ gửi một bản mẫu <span style="font-weight: bold;">cấp độ ' + level + '</span> template.</div>'));
+			// Place after the stale and other-user-reverted (text-only) messages
+			$('#twinkle-warn-autolevel-message').remove(); // clean slate
+			$autolevelMessage.insertAfter($('#twinkle-warn-warning-messages'));
+	
+			var template = params.sub_group.replace(/(.*)\d$/, '$1');
+			// Validate warning level, falling back to the uw-generic series.
+			// Only a few items are missing a level, and in all but a handful
+			// of cases, the uw-generic series is explicitly used elsewhere per WP:UTM.
+			if (params.messageData && !params.messageData['level' + level]) {
+				template = 'uw-generic';
+			}
+			template += level;
+	
+			return [template, level];
+		},
+		main: function(pageobj) {
+			var text = pageobj.getPageText();
+			var statelem = pageobj.getStatusElement();
+			var params = pageobj.getCallbackParameters();
+			var messageData = params.messageData;
+	
+			// JS somehow didn't get destructured assignment until ES6 so of course IE doesn't support it
+			var warningHistory = Twinkle.warn.callbacks.dateProcessing(text);
+			var latest = warningHistory[0];
+			var history = warningHistory[1];
+	
+			var now = new Morebits.date(pageobj.getLoadTime());
+	
+			Twinkle.warn.talkpageObj = pageobj; // Update talkpageObj, just in case
+			if (params.main_group === 'autolevel') {
+				// [template, level]
+				var templateAndLevel = Twinkle.warn.callbacks.autolevelParseWikitext(text, params, latest, now, statelem);
+	
+				// Only if there's a change from the prior display/load
+				if (params.sub_group !== templateAndLevel[0] && !confirm('Will issue a {{' + templateAndLevel[0] + '}} bản mẫu cho người dùng, được chứ ?')) {
+					statelem.error('bị hủy bỏ theo yêu cầu của người dùng');
+					return;
+				}
+				// Update params now that we've selected a warning
+				params.sub_group = templateAndLevel[0];
+				messageData = params.messageData['level' + templateAndLevel[1]];
+			} else if (params.sub_group in history) {
+				if (new Morebits.date(history[params.sub_group]).add(1, 'day').isAfter(now)) {
+					if (!confirm('An identical ' + params.sub_group + ' đã được phát hành trong 24 giờ qua.  \nBạn vẫn muốn thêm cảnh báo/thông báo này?')) {
+						statelem.error('bị hủy bỏ theo yêu cầu của người dùng');
+						return;
+					}
+				}
+			}
+	
+			latest.date.add(1, 'minute'); // after long debate, one minute is max
+	
+			if (latest.date.isAfter(now)) {
+				if (!confirm('A ' + latest.type + ' đã được cảnh báo vào phút trước.  \nBạn vẫn muốn thêm cảnh báo/thông báo này?')) {
+					statelem.error('bị hủy bỏ theo yêu cầu của người dùng');
 					return;
 				}
 			}
-		}
-
-		latest.date.setUTCMinutes( latest.date.getUTCMinutes() + 1 ); // after long debate, one minute is max
-
-		if( latest.date > date ) {
-			if( !confirm( "A " + latest.type + " has been issued in the last minute.  \nWould you still like to add this warning/notice?" ) ) {
-				pageobj.statelem.info( 'aborted per user request' );
-				return;
+	
+			var dateHeaderRegex = now.monthHeaderRegex(), dateHeaderRegexLast, dateHeaderRegexResult;
+			while ((dateHeaderRegexLast = dateHeaderRegex.exec(text)) !== null) {
+				dateHeaderRegexResult = dateHeaderRegexLast;
 			}
-		}
-
-		var dateHeaderRegex = new RegExp( "^==+\\s*(?:" + date.getUTCMonthName() + '|' + date.getUTCMonthNameAbbrev() +
-			")\\s+" + date.getUTCFullYear() + "\\s*==+", 'mg' );
-		var dateHeaderRegexLast, dateHeaderRegexResult;
-		while ((dateHeaderRegexLast = dateHeaderRegex.exec( text )) !== null) {
-			dateHeaderRegexResult = dateHeaderRegexLast;
-		}
-		// If dateHeaderRegexResult is null then lastHeaderIndex is never checked. If it is not null but
-		// \n== is not found, then the date header must be at the very start of the page. lastIndexOf
-		// returns -1 in this case, so lastHeaderIndex gets set to 0 as desired.
-		var lastHeaderIndex = text.lastIndexOf( "\n==" ) + 1;
-
-		if( text.length > 0 ) {
-			text += "\n\n";
-		}
-
-		if( messageData.heading ) {
-			text += "== " + messageData.heading + " ==\n";
-		} else if( !dateHeaderRegexResult || dateHeaderRegexResult.index !== lastHeaderIndex ) {
-			Morebits.status.info( 'Info', 'Will create a new level 2 heading for the date, as none was found for this month' );
-			text += "== " + date.getUTCMonthName() + " " + date.getUTCFullYear() + " ==\n";
-		}
-		text += Twinkle.warn.callbacks.getWarningWikitext(params.sub_group, params.article,
-			params.reason, params.main_group === 'custom') + " ~~~~";
-
-		if ( Twinkle.getPref('showSharedIPNotice') && mw.util.isIPAddress( mw.config.get('wgTitle') ) ) {
-			Morebits.status.info( 'Info', 'Đang thêm thông báo cho IP chung' );
-			text +=  "\n{{thế:Khuyên IP chung}}";
-		}
-
-		// build the edit summary
-		var summary;
-		if( params.main_group === 'custom' ) {
-			switch( params.sub_group.substr( -1 ) ) {
-				case "1":
-					summary = "Thông báo chung";
-					break;
-				case "2":
-					summary = "Chú ý";
-					break;
-				case "3":
-					summary = "Cảnh báo";
-					break;
-				case "4":
-					summary = "Cảnh báo cuối cùng";
-					break;
-				case "m":
-					if( params.sub_group.substr( -3 ) === "4im" ) {
-						summary = "Cảnh báo duy nhất";
+			// If dateHeaderRegexResult is null then lastHeaderIndex is never checked. If it is not null but
+			// \n== is not found, then the date header must be at the very start of the page. lastIndexOf
+			// returns -1 in this case, so lastHeaderIndex gets set to 0 as desired.
+			var lastHeaderIndex = text.lastIndexOf('\n==') + 1;
+	
+			if (text.length > 0) {
+				text += '\n\n';
+			}
+	
+			if (messageData.heading) {
+				text += '== ' + messageData.heading + ' ==\n';
+			} else if (!dateHeaderRegexResult || dateHeaderRegexResult.index !== lastHeaderIndex) {
+				Morebits.status.info('Thông tin', 'Sẽ tạo một tiêu đề cấp 2 mới theo ngày, vì không có tiêu đề nào được tìm thấy trong tháng này');
+				
+				// format monthYear -- [Alphama]
+				var time    = new Date();
+				var month   = time.getUTCMonth() + 1;
+				var year    = time.getUTCFullYear();
+				stamp = '== Tháng ' + month + '/' + year + ' =='
+				text += stamp + '\n';
+			}
+			text += Twinkle.warn.callbacks.getWarningWikitext(params.sub_group, params.article,
+				params.reason, params.main_group === 'custom');
+	
+			if (Twinkle.getPref('showSharedIPNotice') && mw.util.isIPAddress(mw.config.get('wgTitle'))) {
+				Morebits.status.info('Thông tin', 'Thêm thông báo IP được chia sẻ');
+				text += '\n{{subst:Khuyên IP chung}}';
+			}
+	
+			// build the edit summary
+			// Function to handle generation of summary prefix for custom templates
+			var customProcess = function(template) {
+				template = template.split('|')[0];
+				var prefix;
+				switch (template.substr(-1)) {
+					case '1':
+						prefix = 'Lưu ý chung';
 						break;
+					case '2':
+						prefix = 'Lưu ý';
+						break;
+					case '3':
+						prefix = 'Cảnh báo';
+						break;
+					case '4':
+						prefix = 'Cảnh báo cuối cùng';
+						break;
+					case 'm':
+						if (template.substr(-3) === '4im') {
+							prefix = 'Chỉ cảnh cáo';
+							break;
+						}
+						// falls through
+					default:
+						prefix = 'Lưu ý';
+						break;
+				}
+				return prefix + ': ' + Morebits.string.toUpperCaseFirstChar(messageData.label);
+			};
+	
+			var summary;
+			if (params.main_group === 'custom') {
+				summary = customProcess(params.sub_group);
+			} else {
+				// Normalize kitchensink to the 1-4im style
+				if (params.main_group === 'kitchensink' && !/^D+$/.test(params.sub_group)) {
+					var sub = params.sub_group.substr(-1);
+					if (sub === 'm') {
+						sub = params.sub_group.substr(-3);
 					}
-					summary = "Thông báo";
-					break;
-				default:
-					summary = "Thông báo";
-					break;
-			}
-			summary += ": " + Morebits.string.toUpperCaseFirstChar(messageData.label);
-		} else {
-			summary = messageData.summary;
-			if ( messageData.suppressArticleInSummary !== true && params.article ) {
-				if ( params.sub_group === "cb-agf-sock" ||
-						params.sub_group === "uw-socksuspect" ) {  // these templates require a username
-					summary += " của [[Thành viên:" + params.article + "]]";
-				} else {
-					summary += " tại trang [[:" + params.article + "]]";
+					// Don't overwrite uw-3rr, technically unnecessary
+					if (/\d/.test(sub)) {
+						params.main_group = 'level' + sub;
+					}
+				}
+				// singlet || level1-4im, no need to /^\D+$/.test(params.main_group)
+				summary = messageData.summary || (messageData[params.main_group] && messageData[params.main_group].summary);
+				// Not in Twinkle.warn.messages, assume custom template
+				if (!summary) {
+					summary = customProcess(params.sub_group);
+				}
+				if (messageData.suppressArticleInSummary !== true && params.article) {
+					if (params.sub_group === 'uw-agf-sock' ||
+							params.sub_group === 'uw-socksuspect' ||
+							params.sub_group === 'uw-aiv') {  // these templates require a username
+						summary += ' của [[:User:' + params.article + ']]';
+					} else {
+						summary += ' trong [[:' + params.article + ']]';
+					}
 				}
 			}
+			summary += '.';
+	
+			pageobj.setPageText(text);
+			pageobj.setEditSummary(summary);
+			pageobj.setChangeTags(Twinkle.changeTags);
+			pageobj.setWatchlist(Twinkle.getPref('watchWarnings'));
+			pageobj.save();
 		}
-		summary += "." + Twinkle.getPref("summaryAd");
-
-		pageobj.setPageText( text );
-		pageobj.setEditSummary( summary );
-		pageobj.setWatchlist( Twinkle.getPref('watchWarnings') );
-		pageobj.save();
-	}
-};
-
-Twinkle.warn.callback.evaluate = function twinklewarnCallbackEvaluate(e) {
-	var userTalkPage = 'Thảo_luận_Thành_viên:' + mw.config.get('wgRelevantUserName');
-
-	// First, check to make sure a reason was filled in if cb-username was selected
-
-	if(e.target.sub_group.value === 'cb-username' && e.target.article.value.trim() === '') {
-		alert("Bạn phải đưa lý do sử dụng bản mẫu {{Yêu cầu đổi tên}}.");
-		return;
-	}
-
-	// Find the selected <option> element so we can fetch the data structure
-	var selectedEl = $(e.target.sub_group).find('option[value="' + $(e.target.sub_group).val() + '"]');
-
-	// Then, grab all the values provided by the form
-	var params = {
-		reason: e.target.reason.value,
-		main_group: e.target.main_group.value,
-		sub_group: e.target.sub_group.value,
-		article: e.target.article.value,  // .replace( /^(Image|Category):/i, ':$1:' ),  -- apparently no longer needed...
-		messageData: selectedEl.data("messageData")
 	};
-
-	Morebits.simpleWindow.setButtonsEnabled( false );
-	Morebits.status.init( e.target );
-
-	Morebits.wiki.actionCompleted.redirect = userTalkPage;
-	Morebits.wiki.actionCompleted.notice = "Cảnh báo hoàn tất, tải lại trang thảo luận trong vài giây";
-
-	var wikipedia_page = new Morebits.wiki.page( userTalkPage, 'Sửa trang thảo luận thành viên' );
-	wikipedia_page.setCallbackParameters( params );
-	wikipedia_page.setFollowRedirect( true );
-	wikipedia_page.load( Twinkle.warn.callbacks.main );
-};
-})(jQuery);
-
-
-//</nowiki>
+	
+	Twinkle.warn.callback.evaluate = function twinklewarnCallbackEvaluate(e) {
+		var userTalkPage = 'User_talk:' + mw.config.get('wgRelevantUserName');
+	
+		// reason, main_group, sub_group, article
+		var params = Morebits.quickForm.getInputData(e.target);
+	
+		// Check that a reason was filled in if uw-username was selected
+		if (params.sub_group === 'uw-username' && !params.article) {
+			alert('Bạn phải cung cấp một lý do cho bản mẫu {{yêu cầu đổi tên}}.');
+			return;
+		}
+	
+		// The autolevel option will already know by now if a user talk page
+		// is a cross-namespace redirect (via !!Twinkle.warn.talkpageObj), so
+		// technically we could alert an error here, but the user will have
+		// already ignored the bold red error above.  Moreover, they probably
+		// *don't* want to actually issue a warning, so the error handling
+		// after the form is submitted is probably preferable
+	
+		// Find the selected <option> element so we can fetch the data structure
+		var $selectedEl = $(e.target.sub_group).find('option[value="' + $(e.target.sub_group).val() + '"]');
+		params.messageData = $selectedEl.data('messageData');
+	
+		Morebits.simpleWindow.setButtonsEnabled(false);
+		Morebits.status.init(e.target);
+	
+		Morebits.wiki.actionCompleted.redirect = userTalkPage;
+		Morebits.wiki.actionCompleted.notice = 'Cảnh báo hoàn tất, tải lại trang thảo luận sau vài giây';
+	
+		var wikipedia_page = new Morebits.wiki.page(userTalkPage, 'Sửa đổi trang thảo luận của người dùng');
+		wikipedia_page.setCallbackParameters(params);
+		wikipedia_page.setFollowRedirect(true, false);
+		wikipedia_page.load(Twinkle.warn.callbacks.main);
+	};
+	
+	Twinkle.addInitCallback(Twinkle.warn, 'warn');
+	})(jQuery);
+	
+	
+	// </nowiki>
+	

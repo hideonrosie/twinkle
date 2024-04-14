@@ -8,6 +8,9 @@
  * Imported from github [https://github.com/1ec5/twinkle].
  * All changes should be made in the repository, otherwise they will be lost.
  *
+ * To update this script from github, you must have a local repository set up. Then
+ * follow the instructions at [https://github.com/1ec5/twinkle/blob/master/README.md].
+ *
  * ----------
  *
  * This is AzaToth's Twinkle, the popular script sidekick for newbies, admins, and
